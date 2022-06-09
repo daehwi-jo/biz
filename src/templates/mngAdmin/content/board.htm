@@ -1,0 +1,341 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            getList(1)
+        })
+
+        function searchEnter(func) {
+            if (window.event.keyCode === 13) {
+                func(1)
+            }
+        }
+
+        function getList(pageNo) {
+            const pageSize = document.getElementById("pageSize").value
+            fetch('/api/contents/board?' +
+                'search=' + search.value +
+                '&bKind=' + searchBKind.value +
+                '&boardType=' + searchBoardType.value +
+                '&useYn=' + ((searchUseYn.checked) ? "Y" : "") +
+                '&pageSize=' + pageSize +
+                '&pageNo=' + pageNo
+            ).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData : null
+                let html = ""
+                let No = getContentNumber(pageNo, pageSize) + 1
+                if (!!data) {
+                    const list = data.boardList
+                    const caseType = {
+                        "0": "공지 사항",
+                        "1": "이벤트",
+                        "2": "리뷰 팁"
+                    }
+                    const caseKind = {
+                        "A": "모두",
+                        "0": "모카",
+                        "1": "캐시"
+                    }
+                    for (const element of list) {
+                        html += "<tr>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase\">" + element.boardId + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + caseKind[element.bKind] + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + caseType[element.boardType] + "</th>" +
+                            "<th class=\"text-left text-secondary text-xs font-weight-bolder opacity-7\"><a style='text-decoration: underline' href='/admin/boardInfo?boardId="+element.boardId+"'>" + element.title + "</a></th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + ((element.useYn !== 'Y')
+                                ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                                : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>") + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.startDate + " ~ " + element.endDate + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + ((element.modDate === "") ? element.regDate : element.modDate) + "</th>" +
+                            "</tr>"
+                        No++
+                    }
+                    boardList.innerHTML = html
+                    getPagination(data.totalCount, pageNo, pageSize, "getList")
+                }
+            })
+        }
+
+
+        function createBoard(bln) {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+
+            if (bln) {
+                const start = startDate.value
+                const end = endDate.value
+
+                if (bKind.value === "선택해주세요") {
+                    alertModal.setModalContent("알림", "앱 종류를 선택하세요.")
+                } else if (boardType.value === "선택해주세요") {
+                    alertModal.setModalContent("알림", "구분을 선택하세요.")
+                } else if (title.value === "") {
+                    alertModal.setModalContent("알림", "제목을 입력하세요.")
+                } else if (start === "") {
+                    alertModal.setModalContent("알림", "시작날짜를 입력해주세요.")
+                } else if (end === "") {
+                    alertModal.setModalContent("알림", "마감날짜를 입력해주세요.")
+                }  else if (end.replaceAll("-","")<start.replaceAll("-","")) {
+                    alertModal.setModalContent("알림", "시작날짜는 마감날짜를 넘을 수 없습니다.")
+                }else {
+                    const opts = {
+                        method: 'POST', body: JSON.stringify({
+                            bKind: bKind.value
+                            ,boardType: boardType.value
+                            ,useYn: useYn.value
+                            ,mainYn: mainYn.value
+                            ,startDate: start
+                            ,endDate: end
+                            ,title: title.value.replaceAll("'","\\'")
+                            ,link: link.value.replaceAll("'","\\'")
+                            ,content: mContent.value.replaceAll("'","\\'")
+                        }), headers: {"Content-Type": "application/json"}
+                    }
+                    fetch('/api/contents/AddBoard', opts).then(function (response) {
+                        return response.json();
+                    }).then(function (res) {
+                        alertModal.setModalContent("알림", (res.resultCode === "00") ? "게시글이 작성되었습니다." : "")
+                    })
+                }
+            }
+            bKind.selectedIndex = 0
+            boardType.selectedIndex = 0
+            useYn.selectedIndex = 0
+            mainYn.selectedIndex = 1
+            startDate.value = ""
+            endDate.value = ""
+            title.value = ""
+            link.value = ""
+            content.value = ""
+            getList(1)
+        }
+
+        function onChangeDivision(obj){
+            const value = obj.value
+
+            mContent.disabled = (value!=="2")
+            bKind.disabled = (value === "2")
+            mainYn.disabled = (value === "2")
+
+            if (value === "2"){
+                bKind.value = "1"
+                mainYn.value = "N"
+            }
+        }
+
+    </script>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">게시판 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>게시판 관리</h5>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <label class="mb-0" for="searchBKind">앱</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="searchBKind" onchange="getList(1)">
+                                <option value=''>전체</option>
+                                <option value='A'>모카/캐시</option>
+                                <option value='0'>모카</option>
+                                <option value='1'>캐시</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <label class="mb-0" for="searchBoardType">구분</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchBoardType" onchange="getList(1)">
+                                <option value='' selected>전체</option>
+                                <option value='0'>공지사항</option>
+                                <option value='1'>이벤트</option>
+                                <option value='2'>리뷰팁</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class=" form-group">
+                        <label class="mb-0" for="search">제목</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="search"
+                                   onkeyup='searchEnter(getList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                            <button type="button" class="btn bg-gradient-primary mb-0 ps-4 pe-4"
+                                    id="btn_search" onclick="getList(1)">조회
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col text-right">
+                    <button class="btn bg-gradient-primary mt-3" id="btn_create" data-bs-toggle="modal"
+                            data-bs-target="#createModal">게시글 작성
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+
+                    <div class="col-2">
+                        <label class="mb-0" for="pageSize">검색개수</label>
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="pageSize" onchange="getList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+
+
+                    <div class="col-2 mt-3 ms-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="searchUseYn" onclick="getList(1)">
+                            <label class="custom-control-label mt-1" for="searchUseYn">사용중만 표시</label>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                Id.
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                앱
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                구분
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">제목</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">게시기간</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">수정일시</th>
+                        </tr>
+                        </thead>
+                        <tbody id="boardList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="createModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title h5">게시글 작성</div>
+                </div>
+                <div class="modal-body">
+                    <div class="row p-3">
+                        <div class="col-6">
+                            <label class="mb-0 text-sm" for="bKind">앱</label>
+                            <select class="form-control disableGray" id="bKind">
+                                <option disabled selected>선택해주세요</option>
+                                <option value="A">모두</option>
+                                <option value="0">모카</option>
+                                <option value="1">캐시</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="boardType">구분</label>
+                            <select class="form-control " id="boardType" onchange="onChangeDivision(this)">
+                                <option disabled selected>선택해주세요</option>
+                                <option value="0">공지사항</option>
+                                <option value="1">이벤트</option>
+                                <option value="2">리뷰팁</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="useYn">사용여부</label>
+                            <select class="form-control" id="useYn">
+                                <option value="Y" selected>사용함</option>
+                                <option value="N">사용안함</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm " for="mainYn">메인노출여부</label>
+                            <select class="form-control disableGray" id="mainYn">
+                                <option value="Y">사용함</option>
+                                <option value="N" selected>사용안함</option>
+                            </select>
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <label class="mb-0" for="startDate">시작일</label>
+                                    <input class="form-control text-sm" type="date" placeholder="게시 시작일"
+                                           id="startDate"/>
+                                </div>
+                                <div class="col-6">
+                                    <label class="mb-0" for="endDate">마감일</label>
+                                    <input class="form-control text-sm" type="date" placeholder="게시 마감일" id="endDate"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="mb-0 mt-2" for="title">제목</label>
+                            <input class="form-control text-sm" placeholder="제목입력" id="title"/>
+
+                            <label class="mb-0 mt-2" for="link">링크</label>
+                            <input class="form-control text-sm" placeholder="링크입력" id="link"/>
+
+                            <label class="mb-0 mt-2" for="mContent">내용</label>
+                            <textarea class="form-control text-sm disableGray" placeholder="내용입력"
+                                      id="mContent" style="height: 180px; resize: none; "></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary" onclick="createBoard(false)"
+                            data-bs-dismiss="modal">취소
+                    </button>
+                    <button type="button" class="btn bg-gradient-primary" onclick="createBoard(true)"
+                            data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">등록
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

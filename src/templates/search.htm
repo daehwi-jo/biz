@@ -1,0 +1,119 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<!--내용물 하드 코딩으로 박혔있음-->
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        window.addEventListener('load', function () {
+
+            if (sessionStorage.getItem("authorCd") !== "SYS") {
+                document.getElementById("searchMenu1").hidden = "hidden"
+            }
+
+            let searchWord = "[[.saKeyword]]"
+
+            if (/^[0-9]{3}-[0-9]{4}-[0-9]{4}|[0-9]{11}$/.test(searchWord)) { //전화번호
+                //전화번호 검색
+                let url = "/api/Search?searchKey=userHp&searchKeyword=" + searchWord.replaceAll("-", "")
+                getSearchData(url)
+                document.getElementById("store").hidden = true
+            } else if (/^[가-힣]{2,4}$/.test(searchWord)) { //이름
+                //이름검색
+                let url = "/api/Search?searchKey=userNm&searchKeyword=" + searchWord
+                getSearchData(url)
+
+            } else if(/^[가-힣a-zA-Z0-9]{4,}$/.test(searchWord)) { //스토어
+                let url = "/api/Search?searchKey=userNm&searchKeyword=" + searchWord
+                getSearchData(url)
+                document.getElementById("member").hidden = true
+                document.getElementById("book").hidden = true
+            } else {
+                if (document.getElementById('searchText').textContent === "검색어 : ") {
+                    document.getElementById('searchText').textContent = "입력된 검색어가 없습니다."
+                } else {
+                    document.getElementById('searchText').textContent += " 검색어에 해당되는 부분이 없습니다."
+                }
+            }
+        })
+
+        function getSearchData(url) {
+            RequestGETApi(url).then(function (data) {
+                setAdminSearchHtml(data.resultData)
+            })
+        }
+
+        function setAdminSearchHtml(list) {
+            let htmlString = ""
+            let member = list.uIdList
+            let book = list.grpIdList
+            let rest = list.restIdList
+
+            if (member.length === 0 && book.length === 0 && rest.length === 0) {
+                document.getElementById('searchText').textContent += " 으로 검색된 항목이 없습니다."
+                return
+            }
+
+            //추후 기업 추가 (기업 상세 페이지 생기면)
+            for (const memberKey of member) {
+                htmlString += "<div class=\"ms-5 mb-2\"><span class=\"me-4\">회원관리 상세</span><a href=\"/admin/memberInfo?uId=" + memberKey.uId + "\">(이름-" + memberKey.uNm + "  전화번호-" + memberKey.HpNo + ")  이동하기</a></div>"
+            }
+            document.getElementById("searchMenu1").innerHTML += htmlString
+            htmlString = ""
+
+            for (const bookKey of book) {
+                htmlString += "<div class=\"ms-5 mb-2\"><span class=\"me-4\">회원장부관리 상세</span><a href=\"/admin/bookInfo?searchGrpId=" + bookKey.grpId + "\">(장부이름-" + bookKey.grpNm + ",  장부장-" +bookKey.uNm + ")  이동하기</a></div>"
+            }
+            document.getElementById("searchMenu2").innerHTML += htmlString
+            htmlString = ""
+            for (const restKey of rest) {
+                htmlString += "<div class=\"ms-5 mb-2\"><span class=\"me-4\">가맹점관리 상세</span><a href=\"/admin/storeInfo?restId=" + restKey.restId + "\">(가맹점이름-" + restKey.restNm + ")  이동하기</a></div>"
+            }
+            document.getElementById("searchMenu3").innerHTML += htmlString
+
+        }
+
+    </script>
+
+    <div class="container-fluid py-4">
+        <div class="row card col-12">
+            <div class="card-header-new pb-0 mt-4 ms-2">
+                <div class="row">
+                    <div class="col">
+                        <h4>검색결과</h4>
+                    </div>
+                    <div class="col">
+                        <div class="text-lg text-bold" id="searchText">검색어 : [[.saKeyword]]</div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body pb-0 ms-4 mb-3">
+                <div class="row" id="member">
+                    <div class="text-dark text-lg mb-2">회원관리</div>
+                    <div class="container mb-4" id="searchMenu1"></div>
+                </div>
+
+                <div class="row" id="book">
+                    <div class="text-dark text-lg mb-2">회원장부관리</div>
+                    <div class="container mb-4" id="searchMenu2"></div>
+                </div>
+
+                <div class="row" id="store">
+                    <div class="text-dark text-lg mb-2">가맹점관리</div>
+                    <div class="container mb-4" id="searchMenu3"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

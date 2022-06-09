@@ -1,0 +1,420 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알림", "잠시만 기다려주세요.")
+            getParamsData(location.href)
+            clickEventListener() //이벤트 정리
+        })
+
+        function clickEventListener() { //이벤트 통합관리
+            window.document.addEventListener('click', async function (event) {
+                switch (event.target.id) {
+                    case "btn_search":
+                        await getReceiptList()
+                        break
+                    case "btn_save":
+                        alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+                        let arr = []
+                        let total = 0
+                        let rows = document.getElementById("menuList").getElementsByTagName("tr")
+
+                        for (let i = 0; i < rows.length; i++) {
+                            let cells = rows[i].getElementsByTagName("td");
+
+                            if (cells[2].firstChild.value === ""){
+                                alertModal.setModalContent("알림", "메뉴 목록 "+(i+1)+"번째에 메뉴 이름이 없는 항목이 있습니다.")
+                                return
+                            }else if (cells[3].firstChild.value === ""){
+                                alertModal.setModalContent("알림", "메뉴 목록 "+(i+1)+"번째에 메뉴 단가가 없는 항목이 있습니다.")
+                                return
+                            }else if (cells[4].firstChild.value === ""){
+                                alertModal.setModalContent("알림", "메뉴 목록 "+(i+1)+"번째에 메뉴 수량이 없는 항목이 있습니다.")
+                                return
+                            }else if (cells[5].firstChild.value === ""){
+                                alertModal.setModalContent("알림", "메뉴 목록 "+(i+1)+"번째에 메뉴 금액이 없는 항목이 있습니다.")
+                                return
+                            }
+
+                            arr.push({
+                                receiptMenuId: cells[1].firstChild.value
+                                , menuNm: cells[2].firstChild.value
+                                , menuPrice: cells[3].firstChild.value
+                                , menuEa: cells[4].firstChild.value
+                                , menuAmt: cells[5].firstChild.value
+                            })
+                            total += cells[5].firstChild.value * 1
+                        }
+
+                        let response = null
+                        if (totalAmt.value.replaceAll(/(\s+|,)/g, "") != total && getSelectedValue("state") === "1") {
+                            alertModal.setModalContent("알림", "메뉴 금액의 합계와 영수증의 합계가 맞지 않습니다.")
+                            return
+                        }
+
+                        console.log(bizNum.value)
+                        response = await RequestPOSTApi("/api/ocr/receiptUpdate", {
+                            restId: restId.textContent,
+                            receiptId: receiptId.value,
+                            state: getSelectedValue("state"),
+                            stateDetail: ((getSelectedValue("state") === "1") ? "8" : stateDetailValue.value),
+                            bizNum: bizNum.value,
+                            aprvDt: aprvDt.value.replaceAll(/(\s+|-)/g, ""),
+                            aprvNo: aprvNo.value,
+                            totalAmt: totalAmt.value.replaceAll(/(\s+|,)/g, ""),
+                            list: arr
+                        })
+
+                        if (getSelectedValue("state") === "1") {
+                            let response2 = await RequestPOSTApi("https://dalbit.fit-technet.com/token/addr", {bizNum: bizNum.value})
+                            response2 = await RequestGETApi("https://dalbit.fit-technet.com/token/addr?bizNum=" + bizNum.value)
+                            response2 = await RequestPOSTApi("https://dalbit.fit-technet.com/token/send", {
+                                bizNum: bizNum.value,
+                                coin: 1.0
+                            })
+                            let tokenMsg = "(" + (response2.resultCode === "00") ? "토큰이 발행되었습니다." : "토큰이 발행되지 않았습니다, 문의해주세요." + ")"
+                            alertModal.setModalContent("알림", (response2.resultCode === "00") ? "저장 되었습니다." + tokenMsg : tokenMsg)
+                        } else {
+                            alertModal.setModalContent("알림", (response.resultCode === "00") ? "저장 되었습니다." : "다시 시도해주세요.")
+                        }
+                        receiptDetail.hidden = true
+                        await getReceiptList()
+                        break
+                    case "btn_add_row":
+                        const cases = {
+                            1: "<input value=''>",
+                            2: "<input class='customBorder pe-3 ps-3' placeholder='메뉴 이름' value=''>",
+                            3: "<input class='customBorder text-right pe-3 ps-3' placeholder='단가 입력' value='' type='number'>",
+                            4: "<input class='customBorder text-right pe-3 ps-3' placeholder='개수 입력' value='' onkeyup='setQuantity(this)' type='number'>",
+                            5: "<input class='customBorder text-right pe-3 ps-3' placeholder='금액 입력' value=''>",
+                            6: "<button class='btn btn-sm bg-gradient-primary mb-0 ps-4 pe-4' onclick='onclickMenuDel(this)'>삭제</button>"
+                        }
+
+                        const row = menuList.insertRow()
+                        row.insertCell()
+                        for (let i = 1; i <= 6; i++) {
+                            const cell = row.insertCell()
+                            cell.classList = "text-center text-xs text-secondary font-weight-bolder opacity-7"
+                            if (i === 1) {
+                                cell.hidden = true
+                            }
+                            cell.innerHTML = cases[i]
+                        }
+                        row.insertCell()
+
+                        listBlink2.textContent = ""
+                        break
+                }
+            })
+        }
+
+        async function getReceiptList() {
+            let response = await RequestGETApi("/api/ocr/receiptList?status=" + getSelectedValue("searchKey") + "&bizNum=" + searchKeyword.value)
+
+            let data = (response.resultCode === "00") ? response.resultData : null
+            let html = ""
+            let blink = ""
+            let cases = {
+                1: "완료",
+                2: "보류",
+                3: "불가"
+            }
+
+            if (!!data) {
+                console.log(data.receiptList)
+                if (data.receiptList.length > 0) {
+                    for (const i in data.receiptList) {
+                        html += "<tr onclick='onClickReceipt(this," + data.receiptList[i].receiptId + ","+data.receiptList[i].bizNum+")' id='receipt" + i + "'>" +
+                            " <td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase\">" + data.receiptList[i].receiptId + "</td>" +
+                            " <td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase\">" + cases[data.receiptList[i].state] + "</td>" +
+                            " <td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase\">" + data.receiptList[i].bizNum + "</td>" +
+                            " <td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\">" + data.receiptList[i].scanDt + "</td>" +
+                            "</tr>"
+                    }
+                    blink = ""
+                } else {
+                    blink = "다른 조회 조건으로 다시 조회해주세요."
+                }
+            }
+            receiptList.innerHTML = html
+            listBlink.textContent = blink
+        }
+
+        async function onClickReceipt(obj, receiptIds, bizNums) {
+
+            let rows = document.getElementById("receiptList").getElementsByTagName("tr")
+            for (let i = 0; i < rows.length; i++) {
+                rows[i].style.background = ((rows[i] === obj) ? "darkgrey" : "white")
+            }
+
+            let response = await RequestGETApi("/api/ocr/receiptData?receiptId=" + receiptIds + "&bizNum=" + bizNums)
+            let data = (response.resultCode === "00") ? response.resultData : null
+            let cases = {
+                "0": "금액일치",
+                "4": "승인번호없음",
+                "5": "승인번호중복",
+                "6": "사업자번호불일치",
+                "7": "영수증첫등록",
+                "8": "금액일치",
+                "9": "금액불일치",
+            }
+
+            if (!!data) {
+                restId.textContent = data.receiptData.restId
+                receiptId.value = receiptIds
+                getSelectedIndexV("state", data.receiptData.state)
+                stateDetail.value = cases[data.receiptData.stateDetail]
+                stateDetailValue.value = data.receiptData.stateDetail
+                bizNum.value = data.receiptData.bizNum
+                scanDate.value = data.receiptData.scanDt
+                aprvDt.value = formatDate(data.receiptData.aprvDt)
+                aprvNo.value = data.receiptData.aprvNo
+                totalAmt.value = numberWithCommas(data.receiptData.totalAmt)
+                receipt_image.src = data.receiptData.receiptImg
+            }
+
+            let html = ""
+            let blink = ""
+            if (data.menuData.length > 0) {
+                for (const e of data.menuData) {
+                    html += "<tr>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\" hidden><input value='" + e.receiptMenuId + "'></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"><input class='customBorder pe-3 ps-3' placeholder='메뉴 이름' value='" + e.menuNm + "'></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"><input class='customBorder text-right pe-3 ps-3' placeholder='단가 입력' value='" + e.menuPrice + "' type='number'></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"><input class='customBorder text-right pe-3 ps-3' placeholder='개수 입력' value='" + e.quantity + "' onkeyup='setQuantity(this)' type='number'></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"><input class='customBorder text-right pe-3 ps-3' placeholder='금액 입력' value='" + e.totalPrice + "'></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"><button class='btn btn-sm bg-gradient-primary mb-0 ps-4 pe-4' onclick='onclickMenuDel(this)'>삭제</button></td>" +
+                        "<td class=\"text-center text-xs text-secondary font-weight-bolder opacity-7\"></td>" +
+                        "</tr>"
+                }
+            } else {
+                blink = "데이터가 없습니다."
+            }
+            menuList.innerHTML = html
+            listBlink2.textContent = blink
+            receiptDetail.hidden = false
+        }
+
+        function onclickMenuDel(obj) {
+            let rows = document.getElementById("menuList").getElementsByTagName("tr")
+            for (const i in rows) {
+                if (rows[i].getElementsByTagName("td")[6].firstChild === obj) {
+                    menuList.deleteRow(i)
+                    break
+                }
+            }
+            if (rows.length === 0) {
+                listBlink2.textContent = "행을 추가해주세요."
+            }
+        }
+
+        function setQuantity(obj) {
+            let rows = document.getElementById("menuList").getElementsByTagName("tr")
+            for (let i = 0; i < rows.length; i++) {
+                let cells = rows[i].getElementsByTagName("td");
+                if (cells[4].firstChild === obj) {
+                    cells[5].firstChild.value = (cells[3].firstChild.value) * (cells[4].firstChild.value)
+                }
+            }
+        }
+
+        function formatDate(date){
+            const rex = /^\d{4}-\d{2}-\d{2}$/
+            const formatDate = date.slice(0,4) + "-" + date.slice(4,6) + "-" + date.slice(6)
+            return (rex.test(formatDate)) ? formatDate : date
+        }
+
+    </script>
+
+    <div hidden>
+        <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModal2"></button>
+    </div>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">영수증 검증</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row">
+            <h5>영수증 검증</h5>
+        </div>
+
+        <div class="card p-3">
+            <div class="row">
+                <div class="col-4">
+                    <label class="mb-0">사업자 번호</label>
+                    <input class="form-group customBorder ps-2" id="searchKeyword">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-4">
+                    <label class="mb-0">처리여부</label>
+                    <select class="form-control customBorder p-0 ps-2 mb-0" id="searchKey">
+                        <option value="1">완료</option>
+                        <option value="2" selected>보류</option>
+                        <option value="3">불가</option>
+                    </select>
+                </div>
+                <div class="col text-right">
+                    <button class="btn bg-gradient-primary mb-0 ps-6 pe-6 mb-0 mt-3" id="btn_search">조회</button>
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="row pt-3">
+            <div class="col-4">
+                <div class="card p-3">
+                    <div class="row">
+                        <div class="table-responsive p-0" style="overflow-x: hidden">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        No.
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        처리상태
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        사업자번호
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">스캔일시
+                                    </th>
+                                </tr>
+                                </thead>
+
+                                <tbody id="receiptList"></tbody>
+                            </table>
+                            <h6 class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink">조회 해주세요.</h6>
+                        </div>
+                        <nav id="pageNav"></nav>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-8">
+                <div class="card p-3" id="receiptDetail" hidden>
+                    <div class="row">
+                        <div class="col"><h6>영수증 상세</h6></div>
+                        <div class="col text-right">
+                            <button class="btn btn-sm bg-gradient-primary mb-0 ps-6 pe-6" id="btn_save"
+                                    data-bs-toggle="modal" data-bs-target="#AlertModal">저장
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-7 pb-4">
+                            <label class="ps-0">영수증 이미지</label>
+                            <div class="form-group customBorder p-0" style="height: 100%">
+                                <img src="" id="receipt_image"
+                                     class="img-fluid shadow border-radius-xl customBorder m-0">
+                            </div>
+                        </div>
+                        <div id="restId" hidden></div>
+                        <div class="col">
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">No.</label>
+                                <input class="form-group customBorder disableGray" id="receiptId" disabled>
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">처리상태</label>
+                                <select class="form-group customBorder disableGray" id="state">
+                                    <option value="1">완료</option>
+                                    <option value="2">보류</option>
+                                    <option value="3">불가</option>
+                                </select>
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">처리상태 상세</label>
+                                <input class="form-group customBorder disableGray" id="stateDetailValue" hidden
+                                       disabled>
+                                <input class="form-group customBorder disableGray" id="stateDetail" disabled>
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">사업자번호</label>
+                                <input class="form-group customBorder disableGray" id="bizNum" disabled>
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">스캔일시</label>
+                                <input class="form-group customBorder disableGray" id="scanDate" disabled>
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">결제일시</label>
+                                <input class="form-group customBorder disableGray" id="aprvDt">
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">승인번호</label>
+                                <input class="form-group customBorder disableGray" id="aprvNo">
+                            </div>
+                            <div class="row ps-3 pe-3">
+                                <label class="ps-0 mb-0">합계</label>
+                                <input class="form-group customBorder disableGray" id="totalAmt">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col"></div>
+                        <div class="col text-right">
+                            <button class="btn btn-sm bg-gradient-primary mb-0 ps-5 pe-5" id="btn_add_row">행 추가</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="table-responsive p-0" style="overflow-x: hidden">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase"></th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        메뉴이름
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        단가
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        수량
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">금액
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase"></th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase"></th>
+                                </tr>
+                                </thead>
+
+                                <tbody id="menuList"></tbody>
+                            </table>
+                            <h6 class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink2">데이터 없음</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

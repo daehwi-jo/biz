@@ -1,0 +1,423 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        let chart = null
+
+        window.addEventListener('load', function () {
+            getHomeData(3, sessionStorage.getItem("companyId"), 8)
+        })
+
+        function drawChart(label, data) {
+            if (chart != null) { //차트 초기화
+                chart.update()
+                chart.destroy()
+            }
+
+            let charts = document.getElementById('charts').getContext("2d");
+
+            let gradientStroke1 = charts.createLinearGradient(0, 230, 0, 50);
+
+            gradientStroke1.addColorStop(1, 'rgba(193,160,255,0.2)');
+            gradientStroke1.addColorStop(0.2, 'rgba(206,181,255,0.0)');
+            gradientStroke1.addColorStop(0, 'rgba(203,12,159,0)'); //purple colors
+
+            let max = 0
+
+            for (const datum of data) {
+                if (datum > max) {
+                    max = datum
+                }
+            }
+
+            chart = new Chart(charts, {
+                type: "line",
+                data: {
+                    labels: label,
+                    datasets: [
+                        {//보라색 선 라벨 오늘
+                            label: "주문건수",
+                            tension: 0.4,
+                            pointRadius: 0,
+                            borderColor: "#a076f1",
+                            borderWidth: 3,
+                            backgroundColor: gradientStroke1,
+                            //보라선 각 날짜별 데이터
+                            data: data,
+                            maxBarThickness: 6
+                        }
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    legend: {
+                        display: false,
+                    },
+                    tooltips: {
+                        enabled: true,
+                        mode: "index",
+                        intersect: false,
+                    },
+                    scales: {
+                        yAxes: [{
+                            gridLines: {
+                                borderDash: [2],
+                                borderDashOffset: [2],
+                                color: '#dee2e6',
+                                zeroLineColor: '#dee2e6',
+                                zeroLineWidth: 1,
+                                zeroLineBorderDash: [2],
+                                drawBorder: false,
+                            },
+                            ticks: {
+                                suggestedMin: 0,
+                                suggestedMax: max,
+                                beginAtZero: true,
+                                padding: 10,
+                                fontSize: 14,
+                                fontColor: '#3d3c3c',
+                                lineHeight: 3,
+                                fontStyle: 'normal',
+                                fontFamily: "Open Sans",
+                            },
+                        },],
+                        xAxes: [{
+                            gridLines: {
+                                zeroLineColor: 'rgba(0,0,0,0)',
+                                display: false,
+                            },
+                            ticks: {
+                                padding: 10,
+                                fontSize: 14,
+                                fontColor: '#3d3c3c',
+                                lineHeight: 3,
+                                fontStyle: 'normal',
+                                fontFamily: "Open Sans",
+                            },
+                        },],
+                    },
+                },
+            });
+
+
+        }
+
+        window.addEventListener('click', function (event) {
+            switch (event.target.id) {
+                case "tab1": //오늘
+                    getHomeContents(3, sessionStorage.getItem("companyId"), 8)
+                    break
+                case "tab2": //이번달
+                    getHomeContents(2, sessionStorage.getItem("companyId"), 6)
+                    break
+                case "tab3": //올해
+                    getHomeContents(1, sessionStorage.getItem("companyId"), 4)
+                    break
+            }
+        })
+
+        function getHomeData(chartKey, companyId, YMD) {
+            RequestGETApi("/api/HomeData?companyId=" + companyId).then(function (data) {
+                if (data.resultCode === "00") {
+                    document.getElementById('totalUser').textContent = numberWithCommas(data.resultData.grpUserCount.Count) + " 명"
+                    document.getElementById('totalGrp').textContent = numberWithCommas(data.resultData.grpCount.Count) + " 개"
+                    document.getElementById('totalStore').textContent = numberWithCommas(data.resultData.joinStoreCount.Count) + " 개"
+                    document.getElementById('today').textContent = numberWithCommas(data.resultData.useAmt.dayAmt) + " 원"
+                    document.getElementById('month').textContent = numberWithCommas(data.resultData.useAmt.monthAmt) + " 원"
+                }
+            })
+            getHomeContents(chartKey, companyId, YMD)
+        }
+
+        function getHomeContents(chartKey, companyId, YMD) {
+            let url = "/api/HomeContentsData?chartKey=" + chartKey + "&companyId=" + companyId + "&YMD=" + YMD
+            RequestGETApi(url).then(function (data) {
+                if (data.resultCode === "00") {
+
+                    let cData = data.resultData.chartData
+                    let label = []
+                    let chartData = []
+
+                    let len = 12 //년 = 12
+                    let str = " 월"
+                    let rankTitle = document.getElementById("rankTitle")
+
+                    rankTitle.textContent = "가맹점 사용순위 (년)"
+                    switch (chartKey) {
+                        case 2:
+                            len = 31 //월
+                            str = " 일"
+                            rankTitle.textContent = "가맹점 사용순위 (월)"
+                            break
+                        case 3:
+                            len = 24 //일
+                            str = " 시"
+                            rankTitle.textContent = "가맹점 사용순위 (일)"
+                            break
+                    }
+                    for (let i = 0; i < len; i++) {
+                        label.push(cData[i].ORDER_S + str)
+                        chartData.push(cData[i].CNT)
+                    }
+                    rankTable(data.resultData.storeRank)
+                    drawChart(label, chartData)
+
+                }
+            }).catch(function () {
+
+            })
+        }
+
+        function rankTable(data) {
+            let html = ""
+            let number = 1
+
+            document.getElementById('listBlink').textContent = ""
+
+            if (data.length === 0) {
+                document.getElementById('storeRankList').innerText = ""
+                document.getElementById('listBlink').textContent = "데이터가 없습니다."
+                return
+            }
+
+            for (const datum of data) {
+                html += "<tr>"
+                html += "   <td>"
+                html += "       <div class=\"text-center text-m\">" + number + "</div>"
+                html += "   </td>"
+                html += "   <td>"
+                html += "       <div class=\" ps-5 text-left text-m\">" + datum.REST_NM + "</div>"
+                html += "   </td>"
+                html += "   <td>"
+                html += "       <div class=\"text-center text-m\">" + numberWithCommas(datum.TOTAL_AMT) + " 원</div>"
+                html += "   </td>"
+                html += "</tr>"
+                number++
+            }
+            document.getElementById('storeRankList').innerHTML = html
+        }
+
+    </script>
+
+    <div class="container-fluid py-4">
+
+        <!--그래프-->
+        <div class="row ">
+            <div class="col-xl-2 col-sm-6 mb-xl-0 mb-4">
+                <div class="card">
+                    <div class="card-body p-3 row">
+
+                        <div class="col-8 numbers">
+                            <h6 class="text-sm mb-0">전체 사용자 수</h6>
+                            <h5 class="text-center text-dark text-bold text-lg mb-0 ms-4" id="totalUser">0 명</h5>
+                        </div>
+                        <div class="col-4 text-end ">
+                            <div class="icon icon-shape  border-radius-md shadow text-center bg-gradient-danger">
+                                <i class="ni ni-circle-08 opacity-10 text-lg"></i>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-sm-6 mb-xl-0 mb-4">
+                <div class="card">
+                    <div class="card-body p-3 row">
+                        <div class="col-8 numbers">
+                            <h6 class="text-sm mb-0">장부 수</h6>
+                            <h5 class="text-center text-dark text-bold text-lg mb-0 ms-4" id="totalGrp">0 개</h5>
+                        </div>
+                        <div class="col-4 text-end ">
+                            <div class="bg-gradient-info icon icon-shape  border-radius-md shadow text-center ">
+                                <i class="ni opacity-10 text-lg ni-collection"></i>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-2 col-sm-6 mb-xl-0 mb-4">
+                <div class="card">
+                    <div class="card-body p-3 row">
+
+                        <div class="col-8 numbers">
+                            <h6 class="text-sm mb-0">가맹점 수</h6>
+                            <h5 class="text-center text-dark text-bold text-lg mb-0 ms-4" id="totalStore">0 개</h5>
+                        </div>
+                        <div class="col-4 text-end ">
+                            <div class="bg-gradient-success icon icon-shape  border-radius-md shadow text-center">
+                                <i class="ni opacity-10 text-lg ni-basket"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+                <div class="card">
+                    <div class="card-body p-3 row">
+
+                        <div class="col-8 numbers">
+                            <h6 class="text-sm mb-0">금일 사용금액</h6>
+                            <h5 class="text-center text-dark text-bold text-lg mb-0 ms-4" id="today">0 원</h5>
+                        </div>
+                        <div class="col-4 text-end">
+                            <div class="bg-gradient-secondary  icon icon-shape  border-radius-md shadow text-center">
+                                <i class="ni opacity-10 text-lg ni-money-coins"></i>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+                <div class="card">
+                    <div class="card-body p-3 row">
+                        <div class="col-8 numbers">
+                            <h6 class="text-sm mb-0 ">금월 사용금액</h6>
+                            <h5 class="text-center text-dark text-bold text-lg mb-0 ms-4" id="month">0 원</h5>
+                        </div>
+                        <div class="col-4 text-end">
+                            <div class="bg-gradient-dark icon icon-shape border-radius-md shadow text-center">
+                                <i class="ni opacity-10 text-lg ni-money-coins"></i>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col">
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <div class="nav-wrapper position-relative end-0">
+                            <ul class="nav nav-pills nav-fill p-1" role="tablist">
+                                <li class="nav-item">
+                                    <div class="nav-link mb-0 px-0 py-1 active text-bolder text-lg" id="tab1"
+                                         data-bs-toggle="tab"
+                                         role="tab" style="cursor: default;">
+                                        금일
+                                    </div>
+                                </li>
+                                <li class="nav-item">
+                                    <div class="nav-link mb-0 px-0 py-1 text-bolder text-lg" id="tab2"
+                                         data-bs-toggle="tab" role="tab"
+                                         style="cursor: default;">
+                                        금월
+                                    </div>
+                                </li>
+                                <li class="nav-item">
+                                    <div class="nav-link mb-0 px-0 py-1 text-bolder text-lg" id="tab3"
+                                         data-bs-toggle="tab" role="tab"
+                                         style="cursor: default;">
+                                        금년
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+
+            <div class="col-lg-5 mt-4">
+                <div class="card" style="height: 340px;">
+                    <div class="card-header">
+                        <h5 id="rankTitle">가맹점 사용순위 (월)</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="col align-content-center">
+                            <div class="table-responsive" style="overflow-x: hidden; overflow-y: auto">
+                                <table class="table align-items-center">
+                                    <thead>
+                                    <tr>
+                                        <td>
+                                            <div class="text-center text-sm">No.</div>
+                                        </td>
+                                        <td>
+                                            <div class="text-center text-sm">가맹점명</div>
+                                        </td>
+                                        <td>
+                                            <div class="text-center text-sm">사용금액</div>
+                                        </td>
+                                    </tr>
+                                    </thead>
+
+                                    <tbody id="storeRankList"></tbody>
+
+                                </table>
+                                <p class="text-center text-lg font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-7">
+                <!--                <div class="card mt-4" style="height: 320px;">-->
+                <!--                    <div class="card-body">-->
+                <!--                    </div>-->
+                <!--                </div>-->
+            </div>
+
+
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header pb-0">
+                        <h5>시간대별 주문건수</h5>
+                    </div>
+                    <div class="card-body p-3 row">
+                        <div class="col-md-12">
+                            <div class="chart">
+                                <canvas id="charts" class="chart-canvas" height="300px"></canvas>
+                            </div>
+                        </div>
+                        <div class="col-md-4 align-content-center"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!--   Core JS Files   -->
+<script src="/public/tm/js/plugins/chartjs.min.js"></script>
+<script src="/public/tm/js/plugins/Chart.extension.js"></script>
+<script type="text/javascript">
+
+
+</script>
+<script>
+    var win = navigator.platform.indexOf('Win') > -1;
+    if (win && document.querySelector('#sidenav-scrollbar')) {
+        var options = {
+            damping: '0.5'
+        }
+        Scrollbar.init(document.querySelector('#sidenav-scrollbar'), options);
+    }
+</script>
+
+<!-- Github buttons -->
+<script async defer src="https://buttons.github.io/buttons.js"></script>
+<!-- Control Center for Soft Dashboard: parallax effects, scripts for the example pages etc -->
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

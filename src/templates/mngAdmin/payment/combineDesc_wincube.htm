@@ -1,0 +1,372 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            $("#endDate").val(getDate(0, 31));
+            $("#startDate").val(getDate(0, 1));
+
+            getcheckBalance();
+            getList(1);
+            getStoreSubList();
+
+        })
+
+
+
+        let restNm="";
+
+        function  getcheckBalance() {
+            fetch('https://mocaapi.darayo.com:7777/api/moca/v2/wincubes/checkBalance').then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                document.getElementById("Available_balance").value=Format_comma2(res.resultData.Available_balance);
+            });
+
+        }
+
+        //GetCombineSubStoreList
+
+        function  getStoreSubList() {
+            let sendData = {
+                restId:[[.restId]],
+        };
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/GetCombineSubStoreList', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //   console.log(res)
+                if (res.resultCode=="00"){
+                    const select = window.document.getElementById('subRestId')
+                    if (isEmpty(res.resultList) == false) {
+                        res.resultList.forEach(function (element) {
+                            const option = document.createElement('option')
+                            option.value = element.restId
+                            option.textContent = element.restNm
+                            select.append(option)
+                        })
+                    }
+                }
+            });
+
+        }
+
+        function  getList(pageNo) {
+            let pageSize=20;
+            let sendData = {
+                pageNo:pageNo,
+                pageSize:pageSize,
+                restId:[[.restId]],
+                subRestId: $("#subRestId").val(),
+                endDate: $("#endDate").val(),
+                startDate: $("#startDate").val(),
+        };
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/GetCombineStoreData_wincube', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                 console.log(res)
+                document.getElementById("orderAmt").innerText = Format_comma2(res.resultData.resultCnt.orderAmt)+'원';
+                document.getElementById("salePriceAmt").innerText = Format_comma2(res.resultData.resultCnt.salePriceAmt)+'원';
+                document.getElementById("spanRestNm").innerText =restNm;
+
+                document.getElementById("coupon_0").innerText = Format_comma2(res.resultData.resultCnt.coupon0)+'원 / '+Format_comma2(res.resultData.resultCnt.coupon0Cnt)+'건'  ;
+                document.getElementById("coupon_1").innerText = Format_comma2(res.resultData.resultCnt.coupon1)+'원 / '+Format_comma2(res.resultData.resultCnt.coupon1Cnt)+'건' ;
+                document.getElementById("coupon_2").innerText = Format_comma2(res.resultData.resultCnt.coupon2)+'원 / '+Format_comma2(res.resultData.resultCnt.coupon2Cnt)+'건';
+
+                let html="";
+
+
+                if (res.resultData.resultCnt.totalCount> 0) {
+
+                    res.resultData.orderList.forEach(function(v) {
+
+                        html += '<tr>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.orderDate+'</a></span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs">'+v.restNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.itemNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right" style="background-color:#d9d9d9;color:#0d0626;">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.creditAmt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right" style="background-color:#d9d9d9;color:#0d0626;">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.salePrice)+' 원</span>';
+                        html += '     </td>';
+
+                        let statNm='주문완료'
+                        if (v.orderStat=="21"){
+                            statNm='<span style="color: red;">주문취소</span>'
+                        }
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+statNm+'</span>';
+                        html += '     </td>';
+
+
+                        html += '</tr>';
+                    });
+                }
+                document.getElementById("resultList").innerHTML = html;
+                getPagination(res.resultData.resultCnt.totalCount,pageNo,pageSize,"getList");
+
+
+
+
+            });
+
+            FunLoadingBarFinish();
+        };
+
+        function isEmpty(str) {
+
+            if (typeof str == "undefined" || str == null || str == "")
+                return true;
+            else
+                return false;
+        }
+
+        function setCombinePaidMake(){
+
+            let settleAmt=$("#settleAmt").val();
+            let chargeAmt=$("#chargeAmt").val();
+
+            // console.log(chargeAmt);
+            // console.log(settleAmt);
+
+            if (settleAmt >0 ){
+
+            }else{
+                alert("정산금액을 입력해주세요.");
+                return;
+            }
+            let sendData = {
+                amt:settleAmt,
+                chargeAmt:chargeAmt.replaceAll(',', ''),
+                restId:[[.restId]],
+            restNm:restNm,
+        };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/SetCombinePaidMake', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                console.log(res)
+
+                if (res.resultCode=="00"){
+                    alert("성공 하였습니다.")
+                    location.reload();
+                }else{
+                    alert(res.resultMsg);
+                }
+                FunLoadingBarFinish();
+
+            });
+
+        }
+
+        function back(){
+            history.back(0);
+        }
+
+        function SetGiftconUpdate(){
+
+            let sendData = {
+                restId:[[.restId]]
+        };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/SetGiftconUpdate', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //console.log(res)
+                location.reload();
+                FunLoadingBarFinish();
+            });
+
+        }
+
+    </script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/combine';">통합정산대상</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4 mb-8">
+
+        <!--백버튼-->
+        <div class="card-header-new pb-0 mb-0" id="backButton">
+            <div class="row">
+                <div class="col">
+                    <button type="button" class="btn bg-gradient-primary mt-2" onclick="back();">
+                        뒤로가기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!--장부 정보-->
+        <div class="row card">
+            <h5><sapn id="spanRestNm"></sapn> 상세</h5>
+            <div class="row ms-3 mt-3">
+
+                <ul class="list-group">
+                    <li class="list-group-item border-0 ps-0 pt-0 text-sm">
+                        <strong class="text-dark">윈큐브 잔여금액 : </strong>
+                        <input type="text" class="text-right" style="width: 120px;" value="" id="Available_balance" readonly>원
+                    </li>
+                </ul>
+            </div>
+
+        </div>
+
+        <Br>
+
+
+        <div class="row card mt-3" id="searchBar">
+            <div class="row ms-3 mt-3">
+                <div class="form-group col-md-2">
+                    주문 내역 :
+                </div>
+
+                <div class="form-group col-md-2">
+                    <div class="input-group input-group-alternative mb-4">
+                        <select class="form-control" id="subRestId">
+                            <option value="">가맹점</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="startDate" onchange="getList(1)">
+                </div>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="endDate" onchange="getList(1)">
+                </div>
+                <div class="col">
+                    <div class="input-group input-group-alternative">
+                        <button type="button" class="btn bg-gradient-primary" id="searchButton" onclick="getList(1)">
+                            조회
+                        </button>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="input-group input-group-alternative">
+                        <button type="button" class="btn bg-gradient-danger"  onclick="SetGiftconUpdate()">
+                            사용현황 업데이트
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+            <div class="row ms-3 mb-3">
+                <div class="col text-lg font-weight-bolder">
+                    소비자 판매가 :   <span class="text-lg font-weight-bolder " id="orderAmt"></span>
+                </div>
+                <div class="col text-lg font-weight-bolder">
+                    윈큐브 판매가 :   <span class="text-lg font-weight-bolder " id="salePriceAmt"></span>
+                </div>
+                <div class="col">
+
+                </div>
+
+            </div>
+            <div class="row ms-3 mb-3">
+                <div class="col">
+                    사용완료 :   <span class="text-sm font-weight-bolder " id="coupon_2"></span>
+                </div>
+                <div class="col">
+                    미사용 :   <span class="text-sm font-weight-bolder " id="coupon_0"></span>
+                </div>
+                <div class="col">
+                    취소 :   <span class="text-sm font-weight-bolder " id="coupon_1"></span>
+                </div>
+            </div>
+
+            <div class="card-body px-0 pt-0 pb-2">
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">사용시간</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">가맹점명</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">상품</th>
+                            <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">주문 금액</th>
+                            <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">윈큐브 판매금액</th>
+                            <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">주문 상태</th>
+                        </tr>
+                        </thead>
+                        <tbody id="resultList">
+
+
+                        </tbody>
+                    </table>
+                </div>
+                <nav id="pageNav"></nav>
+            </div>
+
+
+
+
+
+        </div>
+        <div class="modal fade" id="pop_orderCancel" tabindex="-1" role="dialog" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header"><h5 class="modal-title">주문  취소</h5></div>
+                    <div class="modal-body">
+                        <div id="delGrpId" hidden></div>
+                        <div>주문을 취소 하시겠습니까?</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                                id="modelGrpBookDelCancel">아니요
+                        </button>
+                        <button type="button" class="btn bg-gradient-danger" data-bs-dismiss="modal"
+                                id="modelGrpBookDelCommit" data-bs-toggle="modal" onclick='orderCancel()' data-bs-target="#AlertModal">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

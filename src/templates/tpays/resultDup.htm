@@ -1,0 +1,99 @@
+
+<style type="text/css">
+    *, *::before, *::after { box-sizing: border-box; }
+    *, *::before, *::after {padding: 0; margin:0; font-family:Nanum Gothic; }
+    .start { width: 100%; }
+    .mainSection0 { margin: 15px 0 0 0; }
+    .mainSection0 >.box { display:flex; flex-direction:row; justify-content: center; border-bottom: 2px solid #6739ff; padding-bottom: 10px;}
+    .box .text { font-size: 30px; font-weight: 700; color: #6739ff; line-height: 1.5;}
+    .mainSection1 { margin: 30px 28px 35px 28px; }
+    .mainSection1 .box { display:flex; flex-direction:row; justify-content: space-between; margin-bottom: 45px; }
+    .mainSection1 .box:nth-child(1) { display:flex; align-items: center; }
+    .box .subject { font-size: 28px; font-weight: 500; color: #6739ff; line-height: 1.5;  }
+    .box .value { text-align: right; font-size: 28px; font-weight: bold; color: #25265e; line-height: 1.5;  }
+    .form { zoom:1.9; }
+    .mainSection2 { margin: 0 43px 45px 28px; }
+    .mainSection2 .box { display:flex; flex-direction:row; justify-content: space-between; margin-bottom: 5px; }
+    .text { display:flex; flex-direction:row; }
+    h3 { display:flex; flex-direction:row; font-size: 26px; font-weight: 800; color: #25265e; line-height: 1.5; }
+    .text label input { display:flex; justify-content: center; align-items: center; zoom:2; margin: 3px 0 0 5px; }
+    h5 { font-size: 18px; font-weight: weight; color: #8384a2; line-height: 1.3; }
+    .mainSection3 { margin-right: }
+    .button { display: flex; justify-content: center; }
+    .button input { display: flex; justify-content: center; background-color: #6739ff; border: none; color: white; padding: 15px 30%; text-align: center; text-decoration: none; display: inline-block;  font-size: 30px; font-weight: 500; cursor: pointer; border-radius: 60px; }
+</style>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DarayoPay</title>
+</head>
+
+<script type="text/javascript">
+
+    window.addEventListener("load", function() {
+
+    });
+
+
+
+    function returnApp()
+    {
+        var osTy = "[[.osTy]]";
+
+        if (osTy == "I"){
+            var message = {'resultCode': '99'};
+            webkit.messageHandlers.callbackHandler.postMessage(message);
+        }else{
+            window.AndroidBridge.sendMessage("99");
+        }
+    }
+
+
+
+
+</script>
+
+<body>
+
+
+
+
+<div class="start">
+    <section class="mainSection0">
+        <div class="box">
+            <div class="text">
+                결제 실패
+            </div>
+        </div>
+    </section>
+    <section class="mainSection1">
+
+
+
+    </section>
+
+    <!-- ======================Section2 Start====================== -->
+
+    <section class="mainSection2">
+
+        <div class="box">
+            <div class="text">
+                <h5>
+                   이미 처리된 결제 입니다.
+                </h5>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================Section3 Start====================== -->
+
+    <section class="mainSection3">
+        <div class="box">
+            <div class="button">
+                <input type="button" value="확인" onclick="returnApp();">
+            </div>
+        </div>
+
+    </section>
+</div>
+</body>
+</html>

@@ -1,0 +1,56 @@
+
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DarayoPay</title>
+</head>
+
+<script type="text/javascript">
+
+    window.addEventListener("load", function() {
+        submitForm();
+    });
+
+
+    function submitForm()
+    {
+        frm = document.transMgr;
+        frm.action = "[[.tpay.payActionUrl]]";
+        frm.submit();
+    }
+
+</script>
+
+<body>
+
+<form id="transMgr" name="transMgr" method="post">
+
+    <input type="hidden" name="vbankExpDate" value="[[.tpay.vbankExpDate]]" readonly="readonly">
+    <input type="hidden" name="returnUrl" class="largeInput" value="[[.tpay.returnUrl]]" readonly="readonly">
+    <input type="hidden" name="cancelUrl" class="largeInput" value="[[.tpay.cancelUrl]]" readonly="readonly">
+    <input type="hidden" name="prdtExpDate" value="">
+    <input type="hidden" name="resultYn" value="N">
+    <input type="hidden" name="payType" value="1">
+    <input type="hidden" name="ediDate"	value="[[.tpay.ediDate]]">
+    <input type="hidden" name="encryptData" value="[[.tpay.encryptData]]">
+    <input type="hidden" name="userIp"	value=[[.tpay.clientIp]]>
+    <input type="hidden" name="browserType" id="browserType" value="">
+    <input type="hidden" name="mallReserved" value="[[.tpay.mallReserved]]">
+    <input type="hidden" name="mallIp" value="172.29.80.1">
+    <input type="hidden" name="transType" value="0" readonly="readonly">
+    <input type="hidden" name="connType" value="1" readonly="readonly">
+    <input type="hidden" name="userAgent" value="[[.tpay.userAgent]]" readonly="readonly">
+    <input type="hidden" name="buyerEmail" value="[[.tpay.buyerEmail]]" readonly="readonly">
+    <input type="hidden" name="buyerTel" value="[[.tpay.buyerTel]]" readonly="readonly">
+    <input type="hidden" name="goodsName" value="[[.tpay.goodsName]]" readonly="readonly">
+    <input type="hidden" name="amt" value="[[.tpay.amt]]" readonly="readonly">
+    <input type="hidden" name="merchantKey" value="[[.tpay.merchantKey]]" readonly="readonly">
+    <input type="hidden" name="mid" value="[[.tpay.mid]]" readonly="readonly">
+    <input type="hidden" name="moid" value="[[.tpay.moid]]" readonly="readonly">
+    <input type="hidden" name="buyerName" value="[[.tpay.userNm]]" readonly="readonly">
+    <input type="hidden" name="mallUserId" value="[[.tpay.mallUserId]]" readonly="readonly">
+    <input type="hidden" name="appPrefix" value="[[.tpay.appPrefix]]" readonly="readonly">
+    <input type="hidden" name="payMethod" value="[[.tpay.payMethod]]" readonly="readonly">
+
+</form>
+</body>
+</html>

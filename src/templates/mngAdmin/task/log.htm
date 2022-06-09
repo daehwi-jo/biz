@@ -1,0 +1,205 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script src="/public/js/utils/xlsx.js"></script>
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            $("#endDate").val(getDate(0, 0));
+            $("#startDate").val(getDate(0, 0));
+            getList()
+        });
+
+        function  getList() {
+
+            let startDt = $("#startDate").val()+" "+ $("#startTime").val();
+            let endDt = $("#endDate").val()+" "+ $("#endTime").val();
+
+            let chkValue="";
+            var chkList = document.querySelectorAll("input[name=resultCode]:checked");
+            if (chkList.length >0){
+                chkList.forEach(function (ch) {
+                    if (chkValue==""){
+                        chkValue=ch.value;
+                    }else{
+                        chkValue=chkValue+","+ch.value;
+                    }
+                });
+            }
+            let sendData = {
+                endDt: endDt,
+                startDt: startDt,
+                appName: $("#appName").val(),
+                limit:$("#limitrows").val(),
+                resultCode:chkValue,
+            };
+
+            FunLoadingBarStart()
+            document.getElementById("logList").innerHTML = "<span style='color: white'>............로딩중..............로딩중.......</span>";
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/Mongo', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //console.log(res);
+                let html="";
+                if(isEmpty(res)==true){
+                    document.getElementById("logList").innerHTML = "로그 내역이 없습니다.";
+                    return;
+                }
+                if (res.length> 0) {
+                    res.forEach(function(v) {
+                        html +="<span style='color: white'><span style='color: #8fda2d'>"+v.Kst+"</span> : "+v.ResultMsg+"</span><br>"
+                        html +="<span style='color: #0dcaf0'>"+v.Query+"</span><br>"
+                    });
+                }else{
+                    document.getElementById("logList").innerHTML = "로그 내역이 없습니다.";
+                }
+                document.getElementById("logList").innerHTML = html;
+
+
+            });
+
+            FunLoadingBarFinish();
+        };
+
+        function isEmpty(str){
+
+            if(typeof str == "undefined" || str == null || str == "")
+                return true;
+            else
+                return false ;
+        }
+
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">로그 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="card-header-new pb-0 mb-2" id="SearchBar">
+            <div class="row" >
+                <h5 class="mt-2">로그 관리</h5>
+                <div class="col-md-1">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="appName" onchange="getList();">
+                                <option value="mocaapi">모카</option>
+                                <option value="cashapi">캐쉬</option>
+                                <option value="bizweb">비즈</option>
+                                <option value="partnerweb">파트너</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="col-2">
+                    <div class="form-group ">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" type="date" value=""  id="startDate" onchange="getList()">
+                        </div>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" type="date" value=""  id="endDate" onchange="getList()">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-2">
+                    <div class="form-group ">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" type="time" value="00:00:01" id="startTime" onchange="getList()">
+                        </div>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" type="time" value="23:59:59" id="endTime" onchange="getList()">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-1">
+                    <div class="form-group ">
+                        <div class="form-group">
+                        <label for="limitrows" class="form-control-label">rows</label>
+                        <input class="form-control" type="number" value="500" id="limitrows">
+                    </div>
+                    </div>
+                </div>
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" onclick="getList()">조회</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="row">
+                <label for="limitrows" class="form-control-label">로그 레벨</label>
+                <div class="col-4">
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel0" value="0">
+                        <label class="form-check-label" for="logLevel0">0</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel1" value="1">
+                        <label class="form-check-label" for="logLevel1">1</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel2" value="2">
+                        <label class="form-check-label" for="logLevel2">2</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel3" value="3">
+                        <label class="form-check-label" for="logLevel3">3</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel4" value="4">
+                        <label class="form-check-label" for="logLevel4">4</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel5" value="5">
+                        <label class="form-check-label" for="logLevel5">5</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" name="resultCode" type="checkbox" id="logLevel99" value="99">
+                        <label class="form-check-label" for="logLevel99">99</label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+
+        <!--본문 표 테이블-->
+        <div class="row card col-12">
+            <div class="card-body px-0 pt-0 pb-2" style="background-color: #1c2330">
+                <br>
+                <div>
+                    <pre id="logList"></pre>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

@@ -1,0 +1,175 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            getContentInfo()
+        })
+
+        function getContentInfo(){
+            const contentId = getParams("contentId")
+            fetch('/api/contents/contentInfo?contentId=' + contentId
+            ).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData : null
+                if (!!data) {
+                    const infoData = data.contentInfo
+                    type.value = infoData.type
+                    siteName.value = infoData.siteName
+                    thumbnail.src = infoData.imageUrl
+                    useYn.value = infoData.useYn
+                    startDate.value = infoData.startDate
+                    endDate.value = infoData.endDate
+
+                    title.value = infoData.title
+                    url.value = infoData.url
+                    imageUrl.value = infoData.imageUrl
+                    videoUrl.value = infoData.videoUrl
+                    description.value = infoData.description
+                }
+            })
+        }
+        function modContentInfo(){
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            const start = startDate.value
+            const end = endDate.value
+
+            if (title.value === "") {
+                alertModal.setModalContent("알림", "제목을 입력하세요.")
+            } else if (start === "") {
+                alertModal.setModalContent("알림", "시작날짜를 입력해주세요.")
+            } else if (end === "") {
+                alertModal.setModalContent("알림", "마감날짜를 입력해주세요.")
+            }  else if (end.replaceAll("-","")<start.replaceAll("-","")) {
+                alertModal.setModalContent("알림", "시작날짜는 마감날짜를 넘을 수 없습니다.")
+            }else {
+                const opts = {
+                    method: 'PUT', body: JSON.stringify({
+                        contentId:getParams("contentId"),
+                        type: type.value,
+                        siteName: siteName.value.replaceAll("'","\\'"),
+                        useYn: useYn.value,
+                        startDate: start,
+                        endDate: end,
+                        title: title.value.replaceAll("'","\\'"),
+                        url: url.value.replaceAll("'","\\'"),
+                        imageUrl: imageUrl.value.replaceAll("'","\\'"),
+                        videoUrl: videoUrl.value.replaceAll("'","\\'"),
+                        description: description.value.replaceAll("'","\\'")
+                    }), headers: {"Content-Type": "application/json"}
+                }
+                fetch('/api/contents/contentInfo', opts).then(function (response) {
+                    return response.json();
+                }).then(function (res) {
+                    alertModal.setModalContent("알림", (res.resultCode === "00") ? "컨텐츠가 수정되었습니다." : "오류가 발생했습니다.")
+                })
+            }
+        }
+
+    </script>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href='javascript:location.href="/admin/content"'>컨텐츠 관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href='javascript:location.reload()'>컨텐츠 관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+                <div class="col-md-3">
+                    <h5>컨텐츠 관리 상세</h5>
+                </div>
+                <div class="col-3">
+                    <button class="btn bg-gradient-primary" onclick='location.href="/admin/content"'>뒤로가기</button>
+                </div>
+
+            </div>
+            <div class="row">
+                <div class="row card p-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-4">
+                                <label class="mb-0 text-sm" for="type">구분</label>
+                                <input class="form-control" id="type" placeholder="구분 입력" maxlength="50">
+
+                                <label class="mb-0 mt-2 text-sm" for="siteName">사이트 이름</label>
+                                <input class="form-control" id="siteName" placeholder="사이트 이름 입력" maxlength="100">
+
+                                <label class="mb-0 mt-2" >섬네일</label>
+                                <div class="text-center" style="height: 180px; resize: none;">
+                                    <img src="" id="thumbnail" class="img-fluid shadow border-radius-xl" style="height: 180px; resize: none;" referrerpolicy="no-referrer"/>
+                                </div>
+
+                                <label class="mb-0 mt-2 text-sm" for="useYn">사용여부</label>
+                                <select class="form-control" id="useYn">
+                                    <option value="Y">사용함</option>
+                                    <option value="N">사용안함</option>
+                                </select>
+
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <label class="mb-0" for="startDate">시작일</label>
+                                        <input class="form-control text-sm" type="date" placeholder="게시 시작일"
+                                               id="startDate"/>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="mb-0" for="endDate">마감일</label>
+                                        <input class="form-control text-sm" type="date" placeholder="게시 마감일" id="endDate"/>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-8">
+                                <label class="mb-0 mt-2" for="title">제목</label>
+                                <input class="form-control text-sm" placeholder="제목입력" id="title" maxlength="500"/>
+
+                                <label class="mb-0 mt-2" for="url">사이트 링크</label>
+                                <input class="form-control text-sm" placeholder="사이트 링크 입력" id="url" maxlength="500"/>
+
+                                <label class="mb-0 mt-2" for="imageUrl">이미지 링크</label>
+                                <input class="form-control text-sm" placeholder="이미지 링크 입력" id="imageUrl" maxlength="500"/>
+
+                                <label class="mb-0 mt-2" for="videoUrl">비디오 링크</label>
+                                <input class="form-control text-sm" placeholder="비디오 링크 입력" id="videoUrl" maxlength="500"/>
+
+                                <label class="mb-0 mt-2" for="description">내용</label>
+                                <textarea class="form-control text-sm" placeholder="내용입력" id="description" maxlength="2000"
+                                          style="height: 180px; resize: none; "></textarea>
+                            </div>
+                        </div>
+                        <div class="row mt-5">
+                            <div class="col text-right">
+                                <button type="button" class="btn bg-gradient-primary ps-5 pe-5 mb-0" onclick="modContentInfo()"
+                                        data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">수정하기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

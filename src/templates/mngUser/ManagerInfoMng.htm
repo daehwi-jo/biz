@@ -1,0 +1,239 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script type="text/javascript">
+
+        window.addEventListener("load", function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+
+            if (sessionStorage.getItem("companyId") === "") {
+                alertModal.setModalContent("알림","회사를 선택해주세요")
+                document.getElementById("alertModalBtn").click()
+            } else {
+                getManagerMngInfo(sessionStorage.getItem("companyId"))
+            }
+
+        });
+
+        async function getManagerMngInfo(companyId) {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi('/api/ManagerInfoMng?companyId=' + companyId)
+
+            if (obj.resultCode === "00") {
+                const cData = obj.resultData.companyInfo[0]
+                const mData = obj.resultData.managerInfo[0]
+
+                document.getElementById("companyNm").value = cData.companyNm
+                document.getElementById("bizNum").value = cData.busid
+                document.getElementById("ceoNm").value = cData.ceoNm
+                document.getElementById("ceoHpNo").value = getHpNo(cData.tel)
+                document.getElementById("addr").value = cData.addr
+                document.getElementById("addr2").value = cData.addr2
+                document.getElementById("homepage").value = cData.homepage
+
+                document.getElementById("userNm").value = mData.userNm
+                document.getElementById("userId").textContent = mData.userId
+                document.getElementById("userTel").value = getHpNo(mData.tel)
+                document.getElementById("course").value = mData.course
+                document.getElementById("dept").value = mData.dept
+                document.getElementById("email").value = mData.email
+
+            }
+            FunLoadingBarFinish()
+        }
+
+
+        function openDaumAddr() {
+            new daum.Postcode({
+                oncomplete: function (data) {
+                    document.getElementById("addr").value = data.address
+                }
+            }).open();
+        }
+
+        async function onClickModifyCompanyInfo() {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            const companyId = sessionStorage.getItem("companyId")
+            if (companyId === "") {
+                alertModal.setModalContent("알림", "회사를 선택해주세요.")
+            } else {
+                const obj = await RequestPUTApi("/api/MngInfoUpdateCo", {
+                    addr: document.getElementById("addr").value + "",
+                    addr2: document.getElementById("addr2").value + "",
+                    ceoNm: document.getElementById("ceoNm").value + "",
+                    companyId: sessionStorage.getItem("companyId") + "",
+                    companyNm: document.getElementById("companyNm").value + "",
+                    homepage: document.getElementById("homepage").value + "",
+                    tel: document.getElementById("ceoHpNo").value.replaceAll("-", ""),
+                    authorCd: sessionStorage.getItem("authorCd")
+                })
+
+                alertModal.setModalContent("회사 정보 수정", (obj.resultCode === "00") ? "회사 정보가 수정되었습니다." : obj.resultMsg)
+                await getManagerMngInfo(companyId)
+            }
+
+        }
+
+        async function onClickModifyManagerInfo() {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            const companyId = sessionStorage.getItem("companyId")
+            if (companyId === "") {
+                alertModal.setModalContent("알림", "회사를 선택해주세요.")
+            } else {
+                const obj = await RequestPUTApi("/api/MngInfoUpdateMng", {
+                    dept: document.getElementById("dept").value + "",
+                    email: document.getElementById("email").value + "",
+                    userTel: document.getElementById("userTel").value.replaceAll("-", "") + "",
+                    companyId: sessionStorage.getItem("companyId") + "",
+                    userId: document.getElementById("userId").textContent,
+                    class: document.getElementById("course").value + "",
+                    authorCd: sessionStorage.getItem("authorCd")
+                })
+
+                alertModal.setModalContent("담당자 정보 수정", (obj.resultCode === "00") ? "담당자 정보가 수정되었습니다." : obj.resultMsg)
+                await getManagerMngInfo(companyId)
+            }
+        }
+    </script>
+
+    <div hidden>
+        <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModal"></button>
+    </div>
+
+    <!--메뉴 경로-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">사용자 관리</li>
+            <li class=" breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload();">관리자 정보관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--카드 헤더-->
+        <div class="card-header-new pb-0 mb-2">
+            <div class="row">
+                <h5 class="mt-2">관리자 정보관리</h5>
+            </div>
+        </div>
+
+        <!--본문-->
+        <div class="row">
+            <!--회사 정보-->
+            <div class="card mt-4 col ms-3 p-3 me-2" id="companyInfo">
+                <div class="row">
+                    <div class="col-md-3"><h5 class="mt-1">회사 정보</h5></div>
+
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>회사명</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="companyNm" value=''></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>사업자 번호</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder disableGray" id="bizNum" value='' disabled></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>대표명</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="ceoNm" value=''></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>대표 전화번호</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="ceoHpNo" value=''></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>회사주소</h6></div>
+                    <div class="col-md-6 ms-2 mt-2">
+                        <input class="cBorder disableGray" id="addr" value='' disabled></div>
+                    <div class="col mt-2">
+                        <div class="btn btn-primary mb-0" type="button" id="modifyAddr" onclick='openDaumAddr()'>주소변경
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>상세주소</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="addr2" value=''></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>회사 홈페이지</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="homepage" value=''></div>
+                </div>
+                <!--                    </div>-->
+                <div class="row text-right me-4 mt-5 p-2">
+                    <button type="button" class="btn btn-primary ms-4" onclick='onClickModifyCompanyInfo()'
+                            data-bs-toggle="modal" data-bs-target="#AlertModal">회사 수정사항 적용
+                    </button>
+                </div>
+            </div>
+
+
+            <!--담당자 정보-->
+            <div class="card mt-4 col ms-3 p-3 me-4" id="managerInfo">
+                <div class="row">
+                    <div class="col-md-3"><h5 class="mt-1">담당자 정보</h5></div>
+
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>담당자 명</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder disableGray" id="userNm" value='' disabled></div>
+                </div>
+
+                <div hidden id="userId"></div>
+
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>담당자 전화번호</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder disableGray" id="userTel" value='' disabled></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>담당자 이메일</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder disableGray" id="email" value='' disabled></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-2 mt-3"><h6>담당자 부서</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="dept" value=''></div>
+                </div>
+                <div class="row mb-8">
+                    <div class="col-md-3 ms-2 mt-3"><h6>담당자 직급</h6></div>
+                    <div class="col ms-2 mt-2">
+                        <input class="cBorder" id="course" value=''></div>
+                </div>
+
+                <div class="row text-right me-4 mt-4 p-1">
+                    <button type="button" class="btn btn-primary ms-4" onclick='onClickModifyManagerInfo()'
+                            data-bs-toggle="modal" data-bs-target="#AlertModal">담당자 수정사항 적용
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

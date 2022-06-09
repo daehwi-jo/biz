@@ -1,0 +1,169 @@
+
+/*커스텀 css*/
+
+.customBorder {
+    width: 100%;
+    /*height: 40px;*/
+    height: 30px;
+    border-radius: 10px;
+    /*background: #bec1c6;*/
+    background-image: linear-gradient(310deg, #f7f7f7 0%, #ffffff 100%);
+    border: 1px solid #d2d6da;
+    /*line-height: 40px;*/
+    /*padding-left: 20px;*/
+    padding-left: 10px;
+    padding-right: 10px;
+    color: #252525;
+    font-weight: 600;
+}
+
+input:focus {
+    outline:2px solid rgb(232, 135, 234);
+
+}
+
+.cBorder {
+    width: 100%;
+    /*height: 40px;*/
+    height: 40px;
+    border-radius: 10px;
+    /*background: #bec1c6;*/
+    background-image: linear-gradient(310deg, #f7f7f7 0%, #ffffff 100%);
+    border: 1px solid #d2d6da;
+    /*line-height: 40px;*/
+    /*padding-left: 20px;*/
+    padding-left: 10px;
+    padding-right: 10px;
+    color: #252525;
+    font-weight: 600;
+    padding-right: 10px;
+}
+
+.customBorder2 {
+    width: 100%;
+    height: 40px;
+    /*background: #bec1c6;*/
+    line-height: 40px;
+    padding-left: 20px;
+    color: #252525;
+    font-weight: 600;
+    border-radius: 10px;
+    padding-right: 10px;
+    border: 1px solid #d2d6da;
+    padding: 5px;
+}
+
+
+.addCsContainer{
+    overflow-y: auto;
+    overflow-x: hidden;
+    /*height: 220px;*/
+    height: 80%;
+    border: 1px solid #d2d6da;
+    padding: 5px;
+    border-radius: 10px;
+}
+
+input:focus{
+    outline: 2px solid rgb(239, 132, 243);
+}
+
+select:focus{
+    outline: 2px solid rgb(239, 132, 243);
+}
+
+option:focus{
+    outline: 2px solid rgb(239, 132, 243);
+}
+
+textarea:focus{
+    outline: 2px solid rgb(239, 132, 243);
+}
+
+.addCsDate{
+    flex: 0 0 auto;
+    width: 20%;
+}
+
+input[type="number"]::-webkit-outer-spin-button{
+
+}
+
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+}
+
+input[type="number"]:disabled {
+    background: #d3d2d2 ;
+}
+
+.inputDisabled:disabled{
+    background: #d3d2d2 ;
+}
+
+select:disabled {
+    background-color: #d3d2d2 !important;
+}
+
+.selectBorder {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    /*background: #bec1c6;*/
+    background-image: linear-gradient(310deg, #f7f7f7 0%, #ffffff 100%);
+    border: 1px solid #d2d6da;
+    padding-left: 10px;
+    color: #252525;
+    font-weight: 600;
+}
+
+.selectBorder:disabled {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    background: #d3d2d2;
+    border: 1px solid #d2d6da;
+    padding-left: 10px;
+    color: #252525;
+    font-weight: 600;
+}
+
+.masterVisible{
+    display: none;
+}
+
+.displayVisible{
+    display: none;
+}
+
+.disabledSwitch{
+    pointer-events:none;
+}
+
+.disableGray:disabled{
+    background: #e0e0e0;
+}
+
+.fa{
+    padding-bottom: 5px;
+    padding-top: 5px;
+}
+
+.blockText{
+    -ms-user-select: none;
+    -moz-user-select: none;
+    -khtml-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.text-gray{
+    color: #707070 !important;
+}
+.subVisible{
+    visibility: visible;
+}
+
+.restInfoDisplay{
+    display: none;
+}

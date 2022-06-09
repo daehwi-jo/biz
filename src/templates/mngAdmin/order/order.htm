@@ -1,0 +1,292 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script src="/public/js/utils/xlsx.js"></script>
+    <script type="text/javascript">
+
+        window.addEventListener("load", function() {
+            document.getElementById("startDate").value = getDate(0, 1)
+            document.getElementById("endDate").value = getDate(0, 0)
+            getList(1)
+        });
+
+
+        function  getList(pageNo) {
+            let pageSize=20;
+
+            let sendData = {
+                pageNo:pageNo,
+                pageSize:pageSize,
+                endDate: $("#endDate").val(),
+                startDate: $("#startDate").val(),
+                searchRestNm: $("#searchRestNm").val(),
+                searchUserNm: $("#searchUserNm").val(),
+                searchGrpNm: $("#searchGrpNm").val(),
+                searchStat: $("#searchStat").val(),
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetOrderList', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+               // console.log(res)
+                let html="";
+
+                if (res.resultData.totalCount> 0) {
+                    res.resultData.resultList.forEach(function(v) {
+
+                        html += '<tr>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.orderDate+'</a></span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs">'+v.grpNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold"><a style=\"text-decoration: underline;\" href="/admin/orderInfo?orderNo='+v.orderNo+'">'+v.userNm+'</a></span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.restNm+'</span>';
+                        html += '     </td>';
+
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.itemNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.orderCnt)+'건</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right" style="background-color:#d9d9d9;color:#0d0626;">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.creditAmt)+' 원</span>';
+                        html += '     </td>';
+                        let payNm='선불';
+                        if (v.payTy=="1"){
+                            payNm='후불';
+                        }
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+payNm+'</span>';
+                        html += '     </td>';
+
+                        html += '     <td class="align-middle text-center">';
+                        if (v.paidYn=="Y"){
+                            html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.payDate+'</span>';
+                        }else{
+                            html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.paidYn+'</span>';
+                        }
+                        let statNm='주문완료'
+                        if (v.orderStat=="21"){
+                            statNm='<span style="color: red;">주문취소</span>'
+                        }
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+statNm+'</span>';
+                        html += '     </td>';
+
+
+                        html += '</tr>';
+
+
+                    });
+                }
+                document.getElementById("resultList").innerHTML = html;
+                getPagination(res.resultData.totalCount,pageNo,pageSize,"getList");
+
+            });
+
+            FunLoadingBarFinish();
+        };
+
+
+
+        function  getExcelList() {
+            let sendData = {
+                endDate: $("#endDate").val(),
+                startDate: $("#startDate").val(),
+                searchRestNm: $("#searchRestNm").val(),
+                searchUserNm: $("#searchUserNm").val(),
+                searchGrpNm: $("#searchGrpNm").val(),
+                searchStat: $("#searchStat").val(),
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetOrderListExcel', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //console.log(res)
+
+                if (res.resultData.resultList != null){
+                    itemsExcelList=res.resultData.resultList;
+                    excelDown2();
+                }else{
+                    alert('데이터가 없습니다.')
+                }
+            });
+            FunLoadingBarFinish();
+        };
+
+
+
+        function excelDown2(){
+            // 컬럼 이름
+            const excelHeader = ["주문일","장부명","사용자명","가맹점","메뉴","건수","금액","선후불","정산일자","상태"];
+            var dataWS = XLSX.utils.json_to_sheet(itemsExcelList);
+            //console.log(this.itemsExcelList);
+            const range = XLSX.utils.decode_range(dataWS['!ref']);
+            for(let c = range.s.c; c <= range.e.c; c++) {
+                const header = XLSX.utils.encode_col(c) + '1'
+                dataWS[header].v =excelHeader[c];
+            }
+
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, dataWS, '주문내역');
+
+            XLSX.writeFile(wb, '주문내역.xlsx');
+        }
+        
+        function enter_getList(){
+            if(event.keyCode == 13){
+                getList(1)
+            }
+        }
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">주문관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="card-header-new pb-0 mb-2" id="SearchBar">
+            <div class="row">
+                <h5 class="mt-2">주문관리</h5>
+                <h6>검색</h6>
+
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" onchange="getList(1)" id="searchStat">
+                                <option value="">상태</option>
+                                <option style="color:green;" value="20" >주문완료</option>
+                                <option style="color:red;" value="21">주문취소</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            가맹점명:
+                            </span>
+                            <input class=" form-control"  type="text" id="searchRestNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+
+
+                </div>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" >
+                                <option value="">주문일</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            장부명:
+                            </span>
+                            <input class=" form-control"  type="text" id="searchGrpNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group ">
+                        <div class="input-group input-group-alternative mb-4">
+                        <input class="form-control" type="date" value=""  id="startDate" onchange="getList(1)">
+                        </div>
+                    </div>
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            사용자명:
+                            </span>
+                            <input class=" form-control"  type="text" id="searchUserNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value=""  id="endDate" onchange="getList(1)">
+                </div>
+
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" onclick="getList(1)">조회</button>
+                            <button type="button" class="btn bg-gradient-primary"  onclick="getExcelList()">Excel</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+
+        <!--본문 표 테이블-->
+        <div class="row card col-12">
+            <div class="card-body px-0 pt-0 pb-2">
+                <br>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead id="storeHeader">
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">주문일</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">장부명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">사용자명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">가맹점명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">메뉴</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 pe-4">건수</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">금액</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">선후불</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">정산일자</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">상태</th>
+                        </tr>
+                        </thead>
+                        <tbody id="resultList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

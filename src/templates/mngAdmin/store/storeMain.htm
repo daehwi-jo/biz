@@ -1,0 +1,190 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        window.addEventListener("load", function() {
+            getParamsData(location.href)
+            getStoreMainList(1)
+        });
+
+
+        async function getStoreMainList(pageNo) {
+            FunLoadingBarStart()
+            const contentNum = getSelectedValue("contentNum")
+            const obj = await RequestGETApi("/api/BizStoreMng?searchKey=" + getSelectedValue("searchSelect")
+                + "&searchKeyword=" + searchText.value
+                + "&pageSize=" + contentNum
+                + "&pageNo=" + pageNo)
+
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+
+            if (!!data) {
+                let html = ""
+                let listBlink = ""
+                if (data.storeList.length !== 0) {
+                    let number = 1 + getContentNumber(pageNo, contentNum)
+                    for (const element of data.storeList) {
+                        html += "<tr class='mt-1 mb-1'>"
+                        html += "   <td class=\"align-middle text-center text-sm\">" + number + "</td>"
+                        html += "   <td>"
+                        html += "       <div class=\"d-flex px-2 py-1\">"
+                        html += "           <div class=\"d-flex flex-column justify-content-center\">"
+                        html += "               <p class=\"mb-0 text-sm\">"
+                        html += "                   <a style=\"text-decoration: underline;\" href=\"/admin/storeInfo?restId=" + element.restId + "\">" + element.restNm + "</a>"
+                        html += "               </p>"
+                        html += "           </div>"
+                        html += "       </div>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0\">" + getHpNo(element.tel) + "</p>"
+                        html += "   </td>"
+                        html += "<td class=\"align-middle text-center\">"
+                        html += ((element.useYn !== 'Y')
+                            ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                            : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>")
+                        html += "</td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + element.busid + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0\">" + element.userNm + "</p>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-left\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + element.addr + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + element.linkCnt + " 개</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-xs font-weight-bold pe-4\">" + element.regDate + "</h6>"
+                        html += "   </td>"
+                        html += "</tr>"
+                        number++;
+                    }
+                    getPagination(data.totalCount, pageNo, contentNum, "getStoreMainList")
+                } else {
+                    listBlink = "데이터 없음"
+                }
+                document.getElementById("storeList").innerHTML = html
+                document.getElementById("listBlink").innerText = listBlink
+            }
+            FunLoadingBarFinish()
+        }
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">가맹점관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="row mt-2 mb-2">
+            <h5>가맹점관리</h5>
+        </div>
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchSelect">
+                                <option value="restNm">가맹점명</option>
+                                <option value="addr">주소</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="searchText"
+                                   onkeyup='searchEnterKey(getStoreMainList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" id="searchButton"
+                                    onclick="getStoreMainList(1)">조회
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                    </div>
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getStoreMainList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead id="storeHeader">
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                No.
+                            </th>
+                            <th class="text-left text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">
+                                가맹점명
+                            </th>
+                            <th class="text-left text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">
+                                전화번호
+                            </th>
+                            <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">사업자번호</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">대표명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">주소</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">연결장부수</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 pe-4">등록일</th>
+                        </tr>
+                        </thead>
+                        <tbody id="storeList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

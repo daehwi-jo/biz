@@ -1,0 +1,263 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+
+
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            $("#endDate").val(getDate(0, 30));
+            $("#startDate").val(getDate(0, 1));
+            getList(1)
+        });
+
+
+        function  getList(pageNo) {
+            let pageSize=20;
+
+            let sendData = {
+                pageNo:pageNo,
+                pageSize:pageSize,
+                endDate: $("#endDate").val(),
+                startDate: $("#startDate").val(),
+                sNm: $("#sNm").val(),
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetTaskList', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                console.log(res)
+                let html="";
+
+                if (res.resultData.totalCount> 0) {
+                    res.resultData.resultList.forEach(function(v) {
+
+                        html += '<tr>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.taskName+'</a></span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs">'+v.taskSuccYn+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs">'+v.cycle+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.regDate+'</span>';
+                        html += '     </td>';
+
+
+                        html += '</tr>';
+                    });
+                }
+                document.getElementById("resultList").innerHTML = html;
+                getPagination(res.resultData.totalCount,pageNo,pageSize,"getList");
+
+            });
+
+            FunLoadingBarFinish();
+        };
+
+
+
+    </script>
+    <link src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.4/fonts/Roboto/Roboto-Italic.ttf"></link>
+    <link src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.4/fonts/Roboto/Roboto-Regular.ttf"></link>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.4/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.4/vfs_fonts.min.js"></script>
+
+
+    <script>
+        function  getpdfmake() {
+            var documentDefinition = {
+//content : pdf의 내용을 정의
+                content: [
+                    {
+                        text: 'First paragraph'
+                    }, // 스타일 적용 없이 그냥 출력
+                    {
+                        text: 'Another paragraph, this time a little bit longer to make sure, this line will be divided into at least two lines',
+                        bold: true
+                    }, // 텍스트에 bold 주기
+                    {
+                        text: '가나다라마바사아자타카타파하',
+                        style: 'style_test'
+                    }, // style 부분에 정의된 style_test 적용해보기 및 한글 꺠짐 테스트
+                    {
+                        style: 'tableExample',
+                        table: {
+                            widths: [100, '*', 200, '*'],
+                            body: [
+                                ['width=100', 'star-sized', 'width=200', 'star-sized'],
+                                ['fixed-width cells have exactly the specified width', {
+                                    text: 'nothing interesting here',
+                                    italics: true,
+                                    color: 'gray'
+                                }, {
+                                    text: 'nothing interesting here',
+                                    italics: true,
+                                    color: 'gray'
+                                }, {
+                                    text: 'nothing interesting here',
+                                    italics: true,
+                                    color: 'gray'
+                                }]
+                            ]
+                        }
+                    }//테이블 그리기
+                ],
+//하단의 현재페이지 / 페이지 수 넣기
+                footer: function (currentPage, pageCount) {
+                    return {
+                        margin: 10,
+                        columns: [{
+                            fontSize: 9,
+                            text: [{
+                                text: '--------------------------------------------------------------------------' +
+                                    '\n',
+                                margin: [0, 20]
+                            },
+                                {
+                                    text: '' + currentPage.toString() + ' of ' +
+                                        pageCount,
+                                }
+                            ],
+                            alignment: 'center'
+                        }]
+                    };
+
+                },
+//필요한 스타일 정의하기
+                styles: {
+                    style_test: {
+                        fontSize: 18,
+                        bold: true,
+                        margin: [0, 0, 0, 0],
+                        alignment: 'center'
+                    },
+                    tableExample: {
+                        margin: [0, 5, 0, 15]
+                    }
+                },
+
+// 페이지 크기 용지의 크기 사이즈 넣기 또는 특정 사이즈 넣기 { width: number, height: number }
+                pageSize:   { width:302, height: 600 }, //'A4'
+
+                /* 페이지 방향 portrait : 가로 , landscape : 세로 */
+                pageOrientation: 'portrait',
+            };
+
+            var pdf_name = 'pdf파일 만들기.pdf'; // pdf 만들 파일의 이름
+            pdfMake.createPdf(documentDefinition).download(pdf_name);
+
+        }
+
+    </script>
+
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">스케쥴 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="card-header-new pb-0 mb-2" id="SearchBar">
+            <div class="row">
+                <h5 class="mt-2">스케쥴 관리</h5>
+                <h6>검색</h6>
+
+                <div class="col-md-2">
+
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            스케쥴명:
+                            </span>
+                            <input class=" form-control"  type="text" id="sNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+
+
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group ">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" type="date" value=""  id="startDate" onchange="getList(1)">
+                        </div>
+                    </div>
+
+                </div>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value=""  id="endDate" onchange="getList(1)">
+                </div>
+
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" onclick="getList(1)">조회</button>
+                        </div>
+                    </div>
+                </div>
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" onclick="getpdfmake()">PDF</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+
+        <!--본문 표 테이블-->
+        <div class="row card col-12">
+            <div class="card-body px-0 pt-0 pb-2">
+                <br>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead id="storeHeader">
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">스케쥴명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">성공여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">실행주기</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">시간</th>
+
+                        </tr>
+                        </thead>
+                        <tbody id="resultList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

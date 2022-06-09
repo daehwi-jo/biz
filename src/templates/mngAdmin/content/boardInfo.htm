@@ -1,0 +1,184 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            getBoardInfo()
+        })
+
+        function getBoardInfo() {
+            const boardId = getParams("boardId")
+            fetch('/api/contents/boardInfo?boardId=' + boardId
+            ).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData : null
+                if (!!data) {
+                    const infoData = data.boardInfo
+                    bKind.value = infoData.bKind
+                    boardType.value = infoData.boardType
+                    mContent.value = infoData.content
+                    endDate.value = infoData.endDate
+                    link.value = infoData.linkUrl
+                    mainYn.value = infoData.mainYn
+                    startDate.value = infoData.startDate
+                    title.value = infoData.title
+                    useYn.value = infoData.useYn
+
+                    onChangeDivision(boardType)
+                }
+            })
+        }
+
+        function modBoardInfo(){
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            const start = startDate.value
+            const end = endDate.value
+            if (title.value === "") {
+                alertModal.setModalContent("알림", "제목을 입력하세요.")
+            } else if (start === "") {
+                alertModal.setModalContent("알림", "시작날짜를 입력해주세요.")
+            } else if (end === "") {
+                alertModal.setModalContent("알림", "마감날짜를 입력해주세요.")
+            }  else if (end.replaceAll("-","")<start.replaceAll("-","")) {
+                alertModal.setModalContent("알림", "시작날짜는 마감날짜를 넘을 수 없습니다.")
+            }else {
+                const opts = {
+                    method: 'PUT', body: JSON.stringify({
+                        boardId: getParams("boardId"),
+                        bKind: bKind.value,
+                        boardType: boardType.value,
+                        useYn: useYn.value,
+                        mainYn: mainYn.value,
+                        startDate: start,
+                        endDate: end,
+                        title: title.value.replaceAll("'","\\'"),
+                        link: link.value.replaceAll("'","\\'"),
+                        content: mContent.value.replaceAll("'","\\'"),
+                    }), headers: {"Content-Type": "application/json"}
+                }
+                fetch('/api/contents/boardInfo', opts).then(function (response) {
+                    return response.json();
+                }).then(function (res) {
+                    alertModal.setModalContent("알림", (res.resultCode === "00") ? "게시글이 수정되었습니다." : "")
+                })
+            }
+        }
+
+        function onChangeDivision(obj){
+            const value = obj.value
+
+            mContent.disabled = (value!=="2")
+            bKind.disabled = (value === "2")
+            mainYn.disabled = (value === "2")
+
+            if (value === "2"){
+                bKind.value = "1"
+                mainYn.value = "N"
+            }
+        }
+
+    </script>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href='javascript:location.href="/admin/board"'>게시판 관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">게시판 관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <div class="col-md-3">
+                <h5>게시판 관리 상세</h5>
+            </div>
+            <div class="col-3">
+                <button class="btn bg-gradient-primary" onclick='javascript:location.href="/admin/board"'>뒤로가기</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="row card p-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-4">
+                            <label class="mb-0 text-sm" for="bKind">앱</label>
+                            <select class="form-control disableGray" id="bKind">
+                                <option value="A">모카/캐시</option>
+                                <option value="0">모카</option>
+                                <option value="1">캐시</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="boardType">구분</label>
+                            <select class="form-control " id="boardType" onchange="onChangeDivision(this)">
+                                <option value="0">공지사항</option>
+                                <option value="1">이벤트</option>
+                                <option value="2">리뷰팁</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="useYn">사용여부</label>
+                            <select class="form-control" id="useYn">
+                                <option value="Y">사용함</option>
+                                <option value="N">사용안함</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="mainYn">메인노출여부</label>
+                            <select class="form-control disableGray" id="mainYn">
+                                <option value="Y">사용함</option>
+                                <option value="N">사용안함</option>
+                            </select>
+                            <div class="row mt-2">
+                                <div class="col-6">
+                                    <label class="mb-0" for="startDate">시작일</label>
+                                    <input class="form-control text-sm" type="date" placeholder="게시 시작일" id="startDate"/>
+                                </div>
+                                <div class="col-6">
+                                    <label class="mb-0" for="endDate">마감일</label>
+                                    <input class="form-control text-sm" type="date" placeholder="게시 마감일" id="endDate"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-8">
+                            <label class="mb-0 mt-2" for="title">제목</label>
+                            <input class="form-control text-sm" placeholder="제목입력" id="title" maxlength="500"/>
+
+                            <label class="mb-0 mt-2" for="link">링크</label>
+                            <input class="form-control text-sm" placeholder="링크입력" id="link" maxlength="500"/>
+
+                            <label class="mb-0 mt-2" for="mContent">내용</label>
+                            <textarea class="form-control text-sm disableGray"  placeholder="내용입력" id="mContent" maxlength="500"
+                                      style="height: 180px; resize: none; "></textarea>
+                        </div>
+                    </div>
+                    <div class="row mt-5">
+                        <div class="col text-right">
+                            <button type="button" class="btn bg-gradient-primary ps-5 pe-5 mb-0" onclick="modBoardInfo()"
+                                    data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">수정하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

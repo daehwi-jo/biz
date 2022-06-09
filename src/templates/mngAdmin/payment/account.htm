@@ -1,0 +1,183 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        window.addEventListener("load", function() {
+            let currentDate = new Date();
+            $("#endDate").val(dateFormat(currentDate));
+            let startDate = new Date(currentDate.setDate(currentDate.getDate() - 7));
+            $("#startDate").val(dateFormat(startDate));
+
+            getList(1);
+        });
+
+        function dateFormat(date) {
+            let month = date.getMonth() + 1;
+            let day = date.getDate();
+            let hour = date.getHours();
+            let minute = date.getMinutes();
+            let second = date.getSeconds();
+
+            month = month >= 10 ? month : '0' + month;
+            day = day >= 10 ? day : '0' + day;
+            hour = hour >= 10 ? hour : '0' + hour;
+            minute = minute >= 10 ? minute : '0' + minute;
+            second = second >= 10 ? second : '0' + second;
+
+            return date.getFullYear() + '-' + month + '-' + day;
+        }
+
+
+        function  getList(pageNo) {
+            let pageSize=20;
+
+            let sendData = {
+                pageNo:pageNo,
+                pageSize:pageSize,
+                endDate: $("#endDate").val().replaceAll('-', ''),
+                startDate: $("#startDate").val().replaceAll('-', ''),
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/GetAccount', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //console.log(res)
+                let html="";
+                let tot_in_amt=0;
+                let tot_out_amt=0;
+                let tot_remain_amt=0;
+                let num=0;
+
+                if (res.resultData.list.length > 0) {
+                    res.resultData.list.forEach(function(v) {
+
+
+                        if(num%2 == 0){
+                            html += '<tr style="background-color: #dcdee3 !important;">';
+                        }else{
+                            html += '<tr>';
+                        }
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.tr_dt+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.tr_cl_nm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.in_amt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.out_amt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.remain_amt)+' 원</span>';
+                        html += '     </td>';
+                        html += '</tr>';
+
+                        tot_in_amt = tot_in_amt +v.in_amt;
+                        tot_out_amt =tot_out_amt +v.out_amt;
+                        num = num+1;
+
+                    });
+                }
+                document.getElementById("resultList").innerHTML = html;
+
+                document.getElementById("tot_cnt").innerText = Format_comma2(res.resultData.result_count);
+                document.getElementById("tot_in_amt").innerText = Format_comma2(tot_in_amt)+'원';
+                document.getElementById("tot_out_amt").innerText = Format_comma2(tot_out_amt)+'원';
+            });
+        };
+
+
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="route" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder"><a class="opacity-5 text-dark" href="javascript:;">자금현황 조회</a></li>
+        </ol>
+    </nav>
+
+    <div class="card-header-new pb-0" id="SearchBar">
+        <div class="row">
+            <h5 class="mt-2">자금현황 조회</h5>
+            <div class="form-group col-md-2">
+                <input class="form-control" type="date" value="" id="startDate" onchange="getList(1)">
+            </div>
+            <div class="form-group col-md-2">
+                <input class="form-control" type="date" value="" id="endDate" onchange="getList(1)">
+            </div>
+
+            <div class="col-md-2">
+                <div class="form-group">
+                    <div class="input-group input-group-alternative ">
+                        <button type="button" class="btn bg-gradient-primary" id="searchButton" onclick="getList(1);">조회</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+                    <div class="card-body px-0 pt-0 pb-2">
+                        <div class="table-responsive p-0">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">일자</th>
+                                    <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">내용</th>
+                                    <th class="text-right text-uppercase text-secondary text-xs font-weight-bolder opacity-7">입금</th>
+                                    <th class="text-right text-uppercase text-secondary text-xs font-weight-bolder opacity-7">출금</th>
+                                    <th class="text-right text-uppercase text-secondary text-xs font-weight-bolder opacity-7">잔액</th>
+                                </tr>
+                                </thead>
+                                <tbody id="resultList">
+
+
+                                </tbody>
+                                <tr class="border-top">
+                                    <td class="align-middle text-center">
+                                        <span class="text-secondary text-xs "></span>
+                                    </td>
+                                    <td class="align-middle text-left">
+                                        <span class="text-secondary text-xl ">건수 : <span id="tot_cnt">0</span></span>
+                                    </td>
+                                    <td class="align-middle text-right">
+                                        <span class="text-secondary text-xl ">입금액 : <span id="tot_in_amt">0원</span></span>
+                                    </td>
+                                    <td class="align-middle text-right">
+                                        <span class="text-secondary text-xl ">출금액 : <span id="tot_out_amt">0원</span></span>
+                                    </td>
+
+                                </tr>
+                            </table>
+                        </div>
+                        <nav id="pageNav"></nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

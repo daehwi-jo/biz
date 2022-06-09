@@ -1,0 +1,176 @@
+
+<style type="text/css">
+    *, *::before, *::after { box-sizing: border-box; }
+    *, *::before, *::after {padding: 0; margin:0; font-family:Nanum Gothic; }
+    .start { width: 100%; }
+    .mainSection0 { margin: 15px 0 0 0; }
+    .mainSection0 >.box { display:flex; flex-direction:row; justify-content: center; border-bottom: 2px solid #6739ff; padding-bottom: 10px;}
+    .box .text { font-size: 30px; font-weight: 700; color: #6739ff; line-height: 1.5;}
+    .mainSection1 { margin: 30px 28px 35px 28px; }
+    .mainSection1 .box { display:flex; flex-direction:row; justify-content: space-between; margin-bottom: 25px; }
+    .mainSection1 .box:nth-child(1) { display:flex; align-items: center; }
+    .box .subject { font-size: 20px; font-weight: 500; color: #6739ff; line-height: 1.5;  }
+    .box .value { text-align: right; font-size: 20px; font-weight: bold; color: #25265e; line-height: 1.5;  }
+    .form { zoom:1.5; }
+    .mainSection2 { margin: 0 43px 45px 28px; }
+    .mainSection2 .box { display:flex; flex-direction:row; justify-content: space-between; margin-bottom: 5px; }
+    .text { display:flex; flex-direction:row; }
+    h3 { display:flex; flex-direction:row; font-size: 18px; font-weight: 800; color: #25265e; line-height: 1.5; }
+    .text label input { display:flex; justify-content: center; align-items: center; zoom:2; margin: 0px 0 0 5px; }
+    h5 { font-size: 10px; font-weight: weight; color: #8384a2; line-height: 1.3; }
+    .mainSection3 { }
+    .button { display: flex; justify-content: center; }
+    .button input { display: flex; justify-content: center; background-color: #6739ff; border: none; color: white; padding: 10px 30%; text-align: center; text-decoration: none; display: inline-block; font-size: 24px; font-weight: 500; cursor: pointer; border-radius: 60px; }
+
+</style>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DarayoPay</title>
+</head>
+
+
+<link rel="stylesheet" href="//webtx.tpay.co.kr/css/nyroModal.tpay.custom.css" type="text/css" media="screen" />
+<script type="text/javascript" src="//webtx.tpay.co.kr/js/jquery-1.7.2.js"></script>
+<script type="text/javascript" src="//webtx.tpay.co.kr/js/jquery.nyroModal.tpay.custom.js"></script>
+<script type="text/javascript" src="//webtx.tpay.co.kr/js/client.tpay.webtx.js"></script>
+<script type="text/javascript">
+
+
+    window.addEventListener("load", function() {
+        document.getElementById("tamt").innerText= Format_comma2([[.tpay.amt]])+"원";
+    });
+
+
+
+    function Format_comma2(str) {
+        str = String(str);
+        var minus = str.substring(0, 1);
+
+        str = str.replace(/[^\d]+/g, '');
+        str = str.replace(/(\d)(?=(?:\d{3})+(?!\d))/g, '$1,');
+
+        //음수일 경우
+        if(minus == "-") str = "-"+str;
+
+        return str;
+    }
+</script>
+
+<body>
+
+<form id="transMgr" name="transMgr" action="[[.tpay.payActionWEBUrl]]" method="post"  class="nyroModal" target="_blank">
+
+    <input type="hidden" name="vbankExpDate" value="[[.tpay.vbankExpDate]]" readonly="readonly">
+    <input type="hidden" name="returnUrl" class="largeInput" value="[[.tpay.returnUrl]]" readonly="readonly">
+    <input type="hidden" name="cancelUrl" class="largeInput" value="[[.tpay.cancelUrl]]" readonly="readonly">
+    <input type="hidden" name="prdtExpDate" value="">
+    <input type="hidden" name="resultYn" value="N">
+    <input type="hidden" name="payType" value="1">
+    <input type="hidden" name="ediDate"	value="[[.tpay.ediDate]]">
+    <input type="hidden" name="encryptData" value="[[.tpay.encryptData]]">
+    <input type="hidden" name="userIp"	value=[[.tpay.clientIp]]>
+    <input type="hidden" name="browserType" id="browserType" value="">
+    <input type="hidden" name="mallReserved" value="[[.tpay.mallReserved]]">
+    <input type="hidden" name="mallIp" value="172.29.80.1">
+    <input type="hidden" name="transType" value="0" readonly="readonly">
+    <input type="hidden" name="connType" value="1" readonly="readonly">
+    <input type="hidden" name="userAgent" value="[[.tpay.userAgent]]" readonly="readonly">
+    <input type="hidden" name="buyerEmail" value="[[.tpay.buyerEmail]]" readonly="readonly">
+    <input type="hidden" name="buyerTel" value="[[.tpay.buyerTel]]" readonly="readonly">
+    <input type="hidden" name="goodsName" value="[[.tpay.goodsName]]" readonly="readonly">
+    <input type="hidden" name="amt" value="[[.tpay.amt]]" readonly="readonly">
+    <input type="hidden" name="merchantKey" value="[[.tpay.merchantKey]]" readonly="readonly">
+    <input type="hidden" name="mid" value="[[.tpay.mid]]" readonly="readonly">
+    <input type="hidden" name="moid" value="[[.tpay.moid]]" readonly="readonly">
+    <input type="hidden" name="buyerName" value="[[.tpay.userNm]]" readonly="readonly">
+    <input type="hidden" name="mallUserId" value="[[.tpay.mallUserId]]" readonly="readonly">
+    <input type="hidden" name="appPrefix" value="[[.tpay.appPrefix]]" readonly="readonly">
+
+
+    <div class="start">
+        <section class="mainSection0">
+            <div class="box">
+                <div class="text">
+                    결제하기(WEB)
+                </div>
+            </div>
+        </section>
+        <section class="mainSection1">
+            <div class="box">
+                <div class="subject">
+                    결제수단
+                </div>
+                <div class="form">
+                    <select name='payMethod' >
+                        <option value='' selected>선택</option>
+                        <option value="CARD">신용카드</option>
+                        <option value="BANK">계좌이체</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="box">
+                <div class="subject">
+                    주문자명
+                </div>
+                <div class="value">
+                    [[.tpay.userNm]]
+                </div>
+            </div>
+
+            <div class="box">
+                <div class="subject">
+                    상품명
+                </div>
+                <div class="value">
+                    [[.tpay.goodsName]]
+                </div>
+            </div>
+
+            <div class="box">
+                <div class="subject">
+                    상품가격
+                </div>
+                <div class="value" id="tamt">
+                    0원
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ======================Section2 Start====================== -->
+
+        <section class="mainSection2">
+            <div class="box">
+                <div class="text">
+                    <h3>결제대행서비스 약관동의</h3>
+                    <label><input type="checkbox" id="paidChk" name="paidChk" value="1"> </label>
+                </div>
+            </div>
+
+            <div class="box">
+                <div class="text">
+                    <h5>
+                        개인정보 수집 및 이용안내, 민감정보 처리에 대한 안내, 제3자 정보제공 동의를 모두 읽었으며, 아래 내용에 모두 동의합니다.
+                    </h5>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ======================Section3 Start====================== -->
+
+        <section class="mainSection3">
+            <div class="box">
+                <div class="button">
+                    <input type="button" value="결제하기"  id="submitBtn">
+                </div>
+            </div>
+
+        </section>
+    </div>
+</form>
+
+<div id="resultDiv"></div>
+</body>
+</html>

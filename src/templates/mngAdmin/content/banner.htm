@@ -1,0 +1,441 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        const bannerSize = ["750*200"]
+
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            dragData = new FormData()
+            getParamsData(location.href)
+            getList(1)
+            fileDragNDrop()
+        })
+
+        function searchEnter(func) {
+            if (window.event.keyCode === 13) {
+                func(1)
+            }
+        }
+
+        function getList(pageNo) {
+            const pageSize = document.getElementById("pageSize").value
+            fetch('/api/contents/banner?' +
+                'search=' + search.value +
+                '&bKind=' + searchBKind.value +
+                '&bannerType=' + searchBannerType.value +
+                '&useYn=' + ((searchUseYn.checked) ? "Y" : "") +
+                '&pageSize=' + pageSize +
+                '&pageNo=' + pageNo
+            ).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData : null
+                let html = ""
+                if (!!data) {
+                    const list = data.bannerList
+                    const caseType = {
+                        "0": "탑배너",
+                    }
+                    const caseKind = {
+                        "0": "모카",
+                        "1": "캐시"
+                    }
+                    for (const element of list) {
+                        html += "<tr>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase\">" + element.bannerId + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + caseKind[element.bKind] + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + caseType[element.bannerType] + "</th>" +
+                            "<th class=\"text-left text-secondary text-xs font-weight-bolder opacity-7\"><a style='text-decoration: underline' href='/admin/bannerInfo?bannerId=" + element.bannerId + "'>" + element.title + "</a></th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + ((element.useYn !== 'Y')
+                                ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                                : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>") + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.startDate + " ~ " + element.endDate + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + ((element.modDate === "") ? element.regDate : element.modDate) + "</th>" +
+                            "</tr>"
+
+                    }
+                    bannerList.innerHTML = html
+                    getPagination(data.totalCount, pageNo, pageSize, "getList")
+                }
+            })
+        }
+
+        async function createBanner(bln) {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            if (bln) {
+                const start = startDate.value
+                const end = endDate.value
+                const input = document.getElementById("imgFile")
+                let path = ""
+                let fileCheck = !!dragData.get("files")
+
+                if (bKind.value === "선택해주세요") {
+                    alertModal.setModalContent("알림", "앱 종류를 선택하세요.")
+                    return
+                } else if (bannerType.value === "선택해주세요") {
+                    alertModal.setModalContent("알림", "구분을 선택하세요.")
+                    return
+                } else if (title.value === "") {
+                    alertModal.setModalContent("알림", "제목을 입력하세요.")
+                    return
+                } else if (start === "") {
+                    alertModal.setModalContent("알림", "시작날짜를 입력해주세요.")
+                    return
+                } else if (end === "") {
+                    alertModal.setModalContent("알림", "마감날짜를 입력해주세요.")
+                    return
+                } else if (end.replaceAll("-", "") < start.replaceAll("-", "")) {
+                    alertModal.setModalContent("알림", "시작날짜는 마감날짜를 넘을 수 없습니다.")
+                    return
+                } else if (startTime.value === "" || endTime.value === "") {
+                    alertModal.setModalContent("알림", "시작시간 또는 마감시간을 입력해주세요.")
+                    return
+                } else {
+                    if (fileCheck) {
+                        const img = {method: 'POST', body: dragData};
+                        const response = await fetch('/api/contents/AddBannerImg', img).then(function (response) {
+                            return response.json();
+                        })
+                        path = (response.resultCode === "00") ? response.resultPath : ""
+                    }
+
+                    const opts = {
+                        method: 'POST', body: JSON.stringify({
+                            bKind: bKind.value,
+                            bannerType: bannerType.value,
+                            useYn: useYn.value,
+                            startDate: start,
+                            startTime: startTime.value,
+                            endDate: end,
+                            endTime: endTime.value,
+                            title: title.value.replaceAll("'", "\\'"),
+                            link: link.value.replaceAll("'", "\\'"),
+                            image: path,
+                        }), headers: {"Content-Type": "application/json"}
+                    }
+                    fetch('/api/contents/AddBanner', opts).then(function (response) {
+                        return response.json();
+                    }).then(function (res) {
+                        alertModal.setModalContent("알림", (res.resultCode === "00") ? "배너가 등록되었습니다." + ((path !== "") ? "(이미지 업로드에 성공했습니다)" : (input.value !== "") ? "(이미지 업로드에 실패했습니다)" : "") : "오류가 발생했습니다.")
+                    })
+                }
+            }
+
+            bKind.selectedIndex = 0
+            bannerType.selectedIndex = 0
+            useYn.selectedIndex = 0
+            startDate.value = ""
+            startTime.value = ""
+            endDate.value = ""
+            endTime.value = ""
+            title.value = ""
+            link.value = ""
+            imgPreview.src = ""
+            fileName.value = ""
+            getList(1)
+        }
+
+        function readImage(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0]
+                const extend = file.name.split(".")[1]
+                const reader = new FileReader()
+
+                if (!(extend === "jpg" || extend === "png" || extend === "jpeg" || extend === "gif")) {
+                    input.textContent = ""
+                    input.value = ""
+                    return
+                }
+                reader.onload = e => {
+                    const previewImage = document.getElementById("imgPreview")
+                    previewImage.src = e.target.result
+                }
+                reader.readAsDataURL(input.files[0])
+                fileName.value = input.files[0].name
+                dragData.append('files', file, file.name)
+            }
+        }
+
+        function fileDragNDrop() {
+            //이미지 프리뷰
+            const imgPreview = document.getElementById("imgPreview")
+
+            /* 박스 안에 Drag를 하고 있을 때 */
+            imgPreview.addEventListener('dragover', function (event) {
+                event.preventDefault()
+                imgPreview.style.border = '2px solid rgb(232, 135, 234)'
+                imgPreview.style.borderRadius = '0.5rem'
+            })
+
+            /* 박스 밖으로 Drag가 나갈 때 */
+            imgPreview.addEventListener('dragleave', function (event) {
+                event.preventDefault()
+                imgPreview.style.border = '1px solid #d2d6da'
+                imgPreview.style.borderRadius = '0.5rem'
+            })
+
+            /* 박스 안에서 Drag를 Drop했을 때 */
+            imgPreview.addEventListener('drop', function (event) {
+                event.preventDefault()
+                imgPreview.style.border = '1px solid #d2d6da'
+                imgPreview.style.borderRadius = '0.5rem'
+
+                const image = event.dataTransfer.files[0]
+                const extend = image.name.split(".").pop()
+                if (!(extend === "jpg" || extend === "png" || extend === "jpeg" || extend === "gif")) {
+                    return
+                }
+                const reader = new FileReader()
+
+                reader.onload = e => {
+                    imgPreview.src = e.target.result
+                }
+
+                reader.readAsDataURL(image)
+                dragData.delete("files")
+                dragData.append("files", image, image.name)
+                fileName.value = image.name
+            })
+        }
+
+        function onChangeBannerSize(obj) {
+            const value = obj.value
+            document.getElementById("bannerSize").textContent = (value === "") ? "" : bannerSize[value]
+        }
+
+    </script>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">배너 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>배너 관리</h5>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <label class="mb-0" for="searchBKind">앱</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="searchBKind" onchange="getList(1)">
+                                <option value='' selected>전체</option>
+                                <option value='0'>모카</option>
+                                <option value='1'>캐시</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <label class="mb-0" for="searchBannerType">구분</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchBannerType" onchange="getList(1)">
+                                <option value='' selected>전체</option>
+                                <option value='0'>탑배너</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class=" form-group">
+                        <label class="mb-0" for="search">제목</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="search"
+                                   onkeyup='searchEnter(getList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                            <button type="button" class="btn bg-gradient-primary mb-0 ps-4 pe-4"
+                                    id="btn_search" onclick="getList(1)">조회
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col text-right">
+                    <button class="btn bg-gradient-primary mt-3" id="btn_create" data-bs-toggle="modal"
+                            data-bs-target="#createModal">배너 등록
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+
+                    <div class="col-2">
+                        <label class="mb-0" for="pageSize">검색개수</label>
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="pageSize" onchange="getList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+
+
+                    <div class="col-2 mt-3 ms-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="searchUseYn" onclick="getList(1)">
+                            <label class="custom-control-label mt-1" for="searchUseYn">사용중만 표시</label>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                Id.
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                앱
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                구분
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">제목</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">게시기간</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">수정일시</th>
+                        </tr>
+                        </thead>
+                        <tbody id="bannerList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="createModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title h5">배너 작성</div>
+                </div>
+                <div class="modal-body">
+                    <div class="row p-3">
+                        <div class="col-6">
+                            <label class="mb-0 text-sm" for="bKind">앱</label>
+                            <select class="form-control " id="bKind">
+                                <option disabled selected>선택해주세요</option>
+                                <option value="0">모카</option>
+                                <option value="1">캐시</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="bannerType">구분</label>
+                            <select class="form-control " id="bannerType" onchange="onChangeBannerSize(this)">
+                                <option disabled selected>선택해주세요</option>
+                                <option value="0">탑배너</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="useYn">사용여부</label>
+                            <select class="form-control" id="useYn">
+                                <option value="Y" selected>사용함</option>
+                                <option value="N">사용안함</option>
+                            </select>
+                            <div class="row">
+                                <div class="row mt-2">
+                                    <label class="mb-0">시작일</label>
+                                    <div class="col-6">
+                                        <input class="form-control text-sm" type="date" placeholder="게시 시작일"
+                                               id="startDate"/>
+                                    </div>
+                                    <div class="col-6">
+                                        <input class="form-control text-sm" type="time" placeholder="게시 마감일"
+                                               id="startTime"/>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <label class="mb-0">마감일</label>
+                                    <div class="col-6">
+                                        <input class="form-control text-sm" type="date" placeholder="게시 시작일"
+                                               id="endDate"/>
+                                    </div>
+                                    <div class="col-6">
+                                        <input class="form-control text-sm" type="time" placeholder="게시 마감일"
+                                               id="endTime"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <label class="mb-0 mt-2" for="title">제목</label>
+                            <input class="form-control text-sm" placeholder="제목입력" id="title"/>
+
+                            <label class="mb-0 mt-2" for="link">링크</label>
+                            <input class="form-control text-sm" placeholder="링크입력" id="link"/>
+
+                            <div class="row">
+                                <div class="col"><label class="mb-0 mt-2">배너 이미지</label></div>
+                                <div class="col text-right">
+                                    <div class="row">
+                                        <div class="col text-right"><label class="mb-0 mt-2">권장 사이즈 : </label></div>
+                                        <div class="col text-left"><label class="mb-0 mt-2" id="bannerSize"></label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="input-group mb-0" style="height: 30px">
+                                <button class="btn btn-outline-primary mb-0 pt-1" type="button" id="button-addon1"
+                                        style=" height: 30px;padding-top: 0.4rem !important; padding-left: 0.4rem!important; padding-right: 0.4rem!important;"
+                                        onclick='document.getElementById("imgFile").click()'>파일 선택
+                                </button>
+                                <input type="text" class="form-control" id="fileName" placeholder="선택된 파일 없음" value=""
+                                       style=" height: 30px; padding-left:10px" disabled/>
+                            </div>
+                            <input type="file" class="form-control" onchange="readImage(this)" id="imgFile"
+                                   style="display: none">
+                            <img class="form-control mt-2" style="height: 130px;" src='' id="imgPreview" height="110"
+                                 width="800"/>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary" onclick="createBanner(false)"
+                            data-bs-dismiss="modal">취소
+                    </button>
+                    <button type="button" class="btn bg-gradient-primary" onclick="createBanner(true)"
+                            data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">등록
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

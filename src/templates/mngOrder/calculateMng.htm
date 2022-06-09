@@ -1,0 +1,680 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        window.addEventListener("load", function () {
+            if (sessionStorage.getItem("companyId") === "") {
+                document.getElementById("alertModalBtn").click()
+            }
+            getGrpIdSelectList();
+        });
+
+        function getGrpIdSelectList() {
+            const companyId = sessionStorage.getItem("companyId")
+            fetch('/api/GetCompanyBookList?companyId=' + companyId + "&userId=" + ((sessionStorage.getItem("authorCd") === "BM") ? sessionStorage.getItem("userId") : "")).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const select = window.document.getElementById('searchGrpIdSelect')
+                const data = res.resultData.bookList;
+
+                document.getElementById('searchEndDt').value = getDate(0, 0)
+
+                if (data.length === 0) {
+                    const option = document.createElement('option')
+                    option.textContent = "장부없음"
+                    option.selected = true
+                    select.append(option)
+                } else {
+                    setParams('searchGrpId', data[0].value)
+                    data.forEach(function (element) {
+                        const option = document.createElement('option')
+                        option.value = element.value
+                        option.textContent = element.label
+                        select.append(option)
+                    })
+                    getList(1)
+                }
+            })
+        }
+
+
+        function getList(pageNo) {
+
+            const pageSize = document.getElementById("contentNum").value;
+            const sendData = {
+                pageNo: pageNo,
+                pageSize: pageSize,
+                companyId: sessionStorage.getItem("companyId"),
+                searchGrpId: document.getElementById("searchGrpIdSelect").value,
+                searchEndDt: document.getElementById("searchEndDt").value
+            };
+            const opts = {
+                method: 'POST',
+                body: JSON.stringify(sendData),
+                headers: {"Content-Type": "application/json"}
+            };
+            fetch('/api/CalculateBookMng', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                // console.log(res)
+                let number = 1 + getContentNumber(pageNo)
+                let html = ""
+                let noData = ""
+                if (res.resultData.totalCount > 0) {
+                    res.resultData.resultList.forEach(function (v) {
+                        html += "<tr>"
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <input type="checkbox" class="chkbox_group" onchange="selectAmt();"  name="chkbox" value="' + v.restId + '">';
+                        html += '	        <input type="hidden" name="chkbox_rest" id="rest_' + v.restId + '" value="' + v.totalAmt + '">';
+                        html += '     </td>';
+                        html += "   <td class=\"align-middle text-center text-sm\">" + number + "</td>"
+                        html += "   <td>"
+                        html += "       <h6 class=\"mb-0 text-center text-sm\">" + v.restNm + "</h6>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs text-center font-weight-bold mb-0\">" + v.grpNm + "</p>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(v.totalAmt) + " 원</h6>"
+                        html += "   </td>"
+                        html += "</tr>"
+                        number++;
+                    });
+                } else {
+                    noData = "데이터 없음"
+                    document.getElementById("pageNav").hidden = true
+                }
+
+                document.getElementById("pageNav").hidden = false
+                document.getElementById("grpBookAccountList").innerHTML = html
+                document.getElementById("listBlink").innerText = noData
+                getPagination(res.resultData.totalCount, pageNo, pageSize, "getList");
+            })
+            FunLoadingBarFinish()
+        }
+
+        function chkAll() {
+            if ($("#checkAll").is(':checked')) {
+                $("input[type=checkbox]").prop("checked", true);
+            } else {
+                $("input[type=checkbox]").prop("checked", false);
+            }
+
+            selectAmt();
+        }
+
+
+        function getTpayData() {
+            let chkData = "";
+            var obj_length = document.getElementsByName("chkbox").length;
+            for (var i = 0; i < obj_length; i++) {
+                if (document.getElementsByName("chkbox")[i].checked == true) {
+                    chkData += "'" + document.getElementsByName("chkbox")[i].value + "'" + ","
+                }
+            }
+            if (chkData == "") {
+                alert("정산할 가맹점을 선택해주세요.")
+                return;
+            }
+
+            FunLoadingBarStart()
+
+            let addAmt = 0;
+            let amt = document.getElementById("remainAmt").value;
+
+
+            let payChannel = "03";
+            let pgCd = "01";
+            let userTy = "0";
+            let selectedDate = document.getElementById("searchEndDt").value.replaceAll('-', '');
+            let paymentTy = "3";
+            let osTy = "web";
+            let grpId = document.getElementById("searchGrpIdSelect").value;
+
+            let sendData = {
+                companyId: sessionStorage.getItem("companyId"),
+                grpId: grpId,
+                restIdArray: chkData.substr(0, chkData.length - 1),
+                userId: sessionStorage.getItem('userId'),
+                selectedDate: selectedDate,
+                searchTy: "2",
+                amt: amt
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/tpays/GetUnpaidReady', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                // console.log(res)
+                let mallReserved = "";
+
+                if (res.resultCode == "00") {
+                    document.getElementById("buyerEmail").value = res.tpay.buyerEmail;
+                    document.getElementById("buyerTel").value = res.tpay.buyerTel;
+                    document.getElementById("cancelUrl").value = res.tpay.cancelUrl;
+                    document.getElementById("userIp").value = res.tpay.clientIp;
+                    document.getElementById("connType").value = res.tpay.connType;
+                    document.getElementById("ediDate").value = res.tpay.ediDate;
+                    document.getElementById("encryptData").value = res.tpay.encryptData;
+                    document.getElementById("goodsName").value = res.tpay.goodsName;
+                    document.getElementById("mallIp").value = res.tpay.mallIp;
+                    document.getElementById("merchantKey").value = res.tpay.merchantKey;
+                    document.getElementById("mid").value = res.tpay.mid;
+                    document.getElementById("moid").value = res.tpay.moid;
+                    document.getElementById("returnUrl").value = res.tpay.returnUrl;
+                    document.getElementById("userAgent").value = res.tpay.userAgent;
+                    document.getElementById("buyerName").value = res.tpay.userNm;
+                    document.getElementById("vbankExpDate").value = res.tpay.vbankExpDate;
+                    document.getElementById("mallUserId").value = res.tpay.userId;
+                    document.getElementById("appPrefix").value = res.tpay.appPrefix;
+                    document.getElementById("domain").value = res.tpay.domain;
+                    resultUrl = res.tpay.returnUrl;
+                    document.getElementById("payAmt").innerText = Format_comma2(amt) + "원";
+
+                    let html = ""
+
+                    res.unpaidList.forEach(function (c) {
+
+                        html += '<tr>'
+                        html += '    <td class="align-middle text-center">' + c.restNm + '</td>'
+                        html += '    <td class="align-middle text-right">' + numberWithCommas(c.totalAmt) + '원</td>'
+                        html += '</tr>'
+                    });
+
+
+                    document.getElementById("uList").innerHTML = html;
+
+                    document.getElementById("amt").value = amt;
+                    document.getElementById("payAmt").innerText = Format_comma2(amt) + "원";
+
+
+                    mallReserved = res.tpay.moid + "," + amt + "," + chkData.slice(0, -1).replaceAll(',', '@').replaceAll("'", '') + "," + res.tpay.grpId + "," + res.tpay.searchTy + "," + addAmt + "," + payChannel + "," + pgCd + "," + userTy + "," + selectedDate + "," + paymentTy + "," + osTy;
+                    document.getElementById("mallReserved").value = mallReserved;
+
+                    //console.log(mallReserved)
+                } else {
+                    alert("정산 내역이 없습니다.")
+                    FunLoadingBarFinish()
+                    return;
+                }
+
+                FunLoadingBarFinish()
+
+
+                $("#chargeBtn").click();
+
+
+            });
+
+        }
+
+        function selectPayMethod() {
+            let payMethod = $("#selectPayMethod option:selected").val();
+            document.getElementById("payMethod").value = payMethod;
+        }
+
+        function goTpay() {
+
+            let payMethod = document.getElementById("payMethod").value
+            if (isEmpty(payMethod) == true) {
+                alert("결제 수단을 선택해 주세요.");
+                return;
+            }
+            document.getElementById("payMethod").value = payMethod;
+            let check = document.getElementsByName("paidChk")[0].checked;
+            if (check == false) {
+                alert("결제대행서비스 약관동의 후 결제가 가능합니다.");
+                return;
+            }
+            $("#pay_modal_cancel").click();
+            $("#submitBtn").click();
+
+        }
+
+        function isEmpty(str) {
+
+            if (typeof str == "undefined" || str == null || str == "")
+                return true;
+            else
+                return false;
+        }
+
+
+        function selectAmt() {
+
+            let sumAmt = 0;
+            let restId = "";
+            var obj_length = document.getElementsByName("chkbox").length;
+            for (var i = 0; i < obj_length; i++) {
+                if (document.getElementsByName("chkbox")[i].checked == true) {
+
+                    restId = document.getElementsByName("chkbox")[i].value;
+                    sumAmt += parseInt($("#rest_" + restId).val())
+                }
+            }
+            document.getElementById("remainAmt").value = sumAmt;
+
+            console.log(sumAmt);
+        }
+
+
+    </script>
+
+    <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModals" style="display: none"></button>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">주문관리</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">장부정산 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <div class="h5">장부정산 관리</div>
+        </div>
+
+        <!--이거 검색창-->
+        <div class="row card" id="searchBar">
+            <div class="row ms-3 mt-3">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchGrpIdSelect" onchange='getList(1)'>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class='col-md-1 mt-1 ms-6'>정산일 : </h6>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="searchEndDt" onchange="getList(1);">
+                </div>
+
+                <div class="col">
+                    <div class="input-group input-group-alternative mb-3">
+                        <button type="button" class="btn bg-gradient-primary" id="btn_search" onclick="getList(1);">조회
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+
+        <div class="row"> <!--이거 본문-->
+            <div class="card p-3 mt-4">
+
+                <div class="card-header pb-0">
+                    <div class="row ms-3 mt-3">
+                        <div class="col-md-2 me-3 mt-2">
+                            <div class="bg-gradient-danger btn" type="button" onclick="getTpayData();">일괄정산하기</div>
+                            <button style="display: none;" type="button" class="btn btn-primary btn-lg" id="chargeBtn"
+                                    data-bs-toggle="modal" data-bs-target="#payReady"></button>
+                        </div>
+
+                    </div>
+                </div>
+
+
+                <div class="card-body ">
+                    <div class="row">
+                        <div class="col-1 ms-4">
+                            <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                        </div>
+
+                        <div class="col-2">
+                            <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                    onchange="getList(1)">
+                                <option value='10' selected>10 개</option>
+                                <option value='20'>20 개</option>
+                                <option value='30'>30 개</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-1">
+
+                            <!--테이블 헤더-->
+                            <thead id="grpBookAccountHeader">
+                            <tr>
+
+                                <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7"
+                                    style="width:10px">
+                                    <input type='checkbox' id="checkAll" onclick="chkAll();"/>
+                                </th>
+
+                                <th class="text-center text-xs font-weight-bolder" style="width:10px">No.</th>
+                                <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary">가맹점 이름</th>
+                                <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary">장부 이름</th>
+                                <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary">미결제 금액</th>
+                            </tr>
+                            </thead>
+
+                            <!--테이블 본문-->
+                            <tbody id="grpBookAccountList"></tbody>
+
+                        </table>
+                        <p class="text-s text-center font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                    </div>
+
+                    <!--페이지네이션-->
+                    <nav id="pageNav"></nav>
+
+                </div>
+            </div>
+        </div>
+
+        <link rel="stylesheet" href="//webtx.tpay.co.kr/css/nyroModal.tpay.custom.css" type="text/css" media="screen"/>
+        <script type="text/javascript" src="//webtx.tpay.co.kr/js/jquery-1.7.2.js"></script>
+        <script type="text/javascript" src="//webtx.tpay.co.kr/js/jquery.nyroModal.tpay.custom.js"></script>
+        <script type="text/javascript" src="//webtx.tpay.co.kr/js/client.tpay.webtx.js"></script>
+        <form id="transMgr" name="transMgr" action="https://webtx.tpay.co.kr/webTxInit" method="post" class="nyroModal"
+              target="_blank">
+            <input type="hidden" name="payMethod" id="payMethod" readonly="readonly">
+            <input type="hidden" name="vbankExpDate" id="vbankExpDate" readonly="readonly">
+            <input type="hidden" name="returnUrl" id="returnUrl">
+            <input type="hidden" name="cancelUrl" id="cancelUrl">
+            <input type="hidden" name="prdtExpDate" id="prdtExpDate" value="">
+            <input type="hidden" name="resultYn" id="resultYn" value="N">
+            <input type="hidden" name="payType" id="payType" value="1">
+            <input type="hidden" name="ediDate" id="ediDate">
+            <input type="hidden" name="encryptData" id="encryptData">
+            <input type="hidden" name="userIp" id="userIp">
+            <input type="hidden" name="browserType" id="browserType" id="browserType" value="">
+            <input type="hidden" name="mallReserved" id="mallReserved">
+            <input type="hidden" name="mallIp" id="mallIp" value="172.29.80.1">
+            <input type="hidden" name="transType" id="transType" value="0" readonly="readonly">
+            <input type="hidden" name="connType" id="connType" value="1" readonly="readonly">
+            <input type="hidden" name="userAgent" id="userAgent" readonly="readonly">
+            <input type="hidden" name="buyerEmail" id="buyerEmail" readonly="readonly">
+            <input type="hidden" name="buyerTel" id="buyerTel" readonly="readonly">
+            <input type="hidden" name="goodsName" id="goodsName" readonly="readonly">
+            <input type="hidden" name="amt" id="amt" readonly="readonly">
+            <input type="hidden" name="merchantKey" id="merchantKey" readonly="readonly">
+            <input type="hidden" name="mid" id="mid" readonly="readonly">
+            <input type="hidden" name="moid" id="moid" readonly="readonly">
+            <input type="hidden" name="buyerName" id="buyerName" readonly="readonly">
+            <input type="hidden" name="mallUserId" id="mallUserId" readonly="readonly">
+            <input type="hidden" name="appPrefix" id="appPrefix" readonly="readonly">
+            <input type="hidden" name="domain" id="domain" readonly="readonly">
+
+        </form>
+        <button type="button" id="submitBtn" style="display: none;"></button>
+
+    </div>
+
+
+    <!--사용자 관리 모달-->
+    <style type="text/css">
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        *, *::before, *::after {
+            padding: 0;
+            margin: 0;
+            font-family: Nanum Gothic;
+        }
+
+        .start {
+            width: 100%;
+        }
+
+        .mainSection0 {
+            margin: 15px 0 0 0;
+        }
+
+        .mainSection0 > .box {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            border-bottom: 2px solid #6739ff;
+            padding-bottom: 10px;
+        }
+
+        .box .text {
+            font-size: 30px;
+            font-weight: 700;
+            color: #6739ff;
+            line-height: 1.5;
+        }
+
+        .mainSection1 {
+            margin: 30px 28px 35px 28px;
+        }
+
+        .mainSection1 .box {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            margin-bottom: 25px;
+        }
+
+        .mainSection1 .box:nth-child(1) {
+            display: flex;
+            align-items: center;
+        }
+
+        .box .subject {
+            font-size: 20px;
+            font-weight: 500;
+            color: #6739ff;
+            line-height: 1.5;
+        }
+
+        .box .value {
+            text-align: right;
+            font-size: 20px;
+            font-weight: bold;
+            color: #25265e;
+            line-height: 1.5;
+        }
+
+        .form {
+            zoom: 1.5;
+        }
+
+        .mainSection2 {
+            margin: 0 43px 45px 28px;
+        }
+
+        .mainSection2 .box {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .text {
+            display: flex;
+            flex-direction: row;
+        }
+
+        h3 {
+            display: flex;
+            flex-direction: row;
+            font-size: 18px;
+            font-weight: 800;
+            color: #25265e;
+            line-height: 1.5;
+        }
+
+        .text label input {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            zoom: 2;
+            margin: 0px 0 0 5px;
+        }
+
+        h5 {
+            font-size: 10px;
+            font-weight: bold;
+            color: #8384a2;
+            line-height: 1.3;
+        }
+
+        .mainSection3 {
+        }
+
+        .button {
+            display: flex;
+            justify-content: center;
+        }
+
+        .button input {
+            display: flex;
+            justify-content: center;
+            background-color: #6739ff;
+            border: none;
+            color: white;
+            padding: 10px 30%;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 24px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 60px;
+        }
+
+        .table2 thead tr th {
+            position: sticky;
+            top: 0;
+            background: #ebeaea;
+        }
+    </style>
+    <div class="col-md-4">
+        <div class="modal fade" id="payReady" tabindex="-1" role="dialog" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px;" role="document">
+                <div class="modal-content" style="max-width: 702px; width: 702px; height: 700px">
+                    <div class="start">
+                        <section class="mainSection0">
+                            <div class="box">
+                                <div class="text">
+                                    일괄정산
+                                </div>
+                            </div>
+                        </section>
+                        <section class="mainSection1">
+                            <div class="box">
+                                <div class="subject">
+                                    결제수단
+                                </div>
+                                <div class="form">
+                                    <select name='selectPayMethod' onchange="selectPayMethod()" id="selectPayMethod">
+                                        <option value='' selected>선택</option>
+                                        <option value="CARD">신용카드</option>
+                                        <option value="BANK">계좌이체</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="box" style="height: 200px; overflow: auto;  display: block;">
+                                <table class="table  align-items-center mb-1">
+                                    <thead style="position: sticky; top: 0; background: #6739ff; color: white">
+                                    <th class="text-center text-xs font-weight-bolder"
+                                        style="position: sticky; top: 0; ">가맹점
+                                    </th>
+                                    <th class="text-center text-xs font-weight-bolder"
+                                        style="position: sticky; top: 0; ">결제금액
+                                    </th>
+                                    </thead>
+                                    <tbody id="uList">
+
+                                    </tbody>
+
+                                </table>
+                            </div>
+                            <div class="box">
+                                <div class="subject">
+                                    총 금액:
+                                </div>
+                                <div class="value" id="payAmt">
+                                    0원
+
+
+                                </div>
+                                <input type="hidden" id="remainAmt">
+                            </div>
+
+                        </section>
+
+                        <!-- ======================Section2 Start====================== -->
+
+                        <section class="mainSection2">
+                            <div class="box">
+                                <div class="text">
+                                    <h3>결제대행서비스 약관동의</h3>
+                                    <label><input type="checkbox" id="paidChk" name="paidChk" value="1"> </label>
+                                </div>
+                            </div>
+
+                            <div class="box">
+                                <div class="text">
+                                    <h5>
+                                        개인정보 수집 및 이용안내, 민감정보 처리에 대한 안내, 제3자 정보제공 동의를 모두 읽었으며, 아래 내용에 모두 동의합니다.
+                                    </h5>
+                                </div>
+                            </div>
+
+                        </section>
+
+                        <!-- ======================Section3 Start====================== -->
+
+                        <section class="mainSection3">
+                            <div class="box">
+
+                            </div>
+
+                        </section>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" style="width: 151px; font-size: 15px;" class="btn bg-gradient-secondary"
+                                id="pay_modal_cancel"
+                                data-bs-dismiss="modal">취소
+                        </button>
+                        <button type="button" style="width: 151px; font-size: 15px;" class="btn bg-gradient-primary"
+                                onclick="goTpay()">결제하기
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="modal fade" id="AlertModals" tabindex="-2" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header" id='modalHead'><div class="modal-title h5" id='headText'>알림</div></div>
+                    <div class="modal-body" id='modalBody'><p class="mb-0">회사를 선택해주세요</p></div>
+                    <div class="modal-footer" id='modalFoot'>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                id="AlertModalCommit">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

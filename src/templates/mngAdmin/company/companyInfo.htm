@@ -1,0 +1,610 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript" src="/public/js/commons/csList.js"></script>
+    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <script type="text/javascript">
+
+
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알람", "알립니다.")
+            getParamsData(location.href)
+            SetCompanyInfoData(getParams("companyId"))
+            clickEventListener()
+        })
+
+        function SetCompanyInfoData(companyId) {
+            FunLoadingBarStart()
+            RequestGETApi('/api/CompanyInfoCsMng?companyId=' + companyId)
+                .then(function (response) {
+                    const data = (response.resultCode === "00") ? response.resultData : null
+
+                    if (!!data) {
+                        const companyData = data.companyInfo
+                        const managerData = data.managerInfo
+
+                        if (companyData != null) {
+                            document.getElementById("companyNm").value = companyData.companyNm
+                            document.getElementById("companyId").textContent = companyData.companyId
+                            document.getElementById("ceoNm").value = companyData.ceoNm
+                            document.getElementById("bizNum").value = companyData.bisId
+                            document.getElementById("addr").value = companyData.addr
+                            document.getElementById("addr2").value = companyData.addr2
+                            document.getElementById("useYn").value = companyData.useYn
+                            document.getElementById("HpNo").value = getHpNo(companyData.tel)
+                            document.getElementById("homepage").value = companyData.homePage
+
+                            bizBadge.style = (companyData.useYn === "N") ? "visibility: hidden" : ""
+                        }
+                        if (managerData != null) {
+                            managerId.textContent = managerData.userId
+                            managerNm.value = managerData.userNm + " (" + managerData.userId + ")"
+                            managerHpNo.value = getHpNo(managerData.tel)
+                            managerDept.value = managerData.dept
+                            managerClass.value = managerData.course
+                            managerEmail.value = managerData.email
+                        } else {
+                            bizYn.innerHTML
+                                = "<button class='btn btn-sm bg-gradient-primary' " +
+                                "onclick='onClickBizUse(\"" + document.getElementById("companyId").textContent + "\")'>비즈사용 전환</button>"
+                        }
+
+                        if (addCsList("C", companyData.companyId, "/api/GetBizCsList")) {
+                            RequestGETApi('/api/GetBizCsList?searchKeyId=' + companyId + '&searchType=C')
+                                .then(function (response) {
+                                    const data = (response.resultCode === "00") ? response.resultData : null
+                                    setCsList(data)
+                                    FunLoadingBarFinish()
+                                })
+                        }
+                    }
+                })
+
+        }
+
+        function onClickBizUse(id) {
+            RequestPOSTApi("/api/company/biz", {
+                companyId: id,
+                addedBy: sessionStorage.getItem("userNm")
+            }).then(function (data) {
+                alertModal.setModalContent("알림", (data.resultCode === "00") ? "비즈사용으로 전환하였습니다." : data.resultMsg)
+                getCompanyMainList(1)
+            })
+        }
+
+        function clickEventListener() {
+            window.document.addEventListener('click', async function (event) {
+                let html = ""
+                let blink = ""
+                let obj = null
+                let data = null
+                switch (event.target.id) {
+                    case "btn_back":
+                        location.href = '/admin/company'
+                        break
+                    case "btn_company_mod":
+                        obj = await RequestPUTApi("/api/MngInfoUpdateCo", {
+                            companyId: companyId.textContent,
+                            companyNm: companyNm.value,
+                            ceoNm: ceoNm.value,
+                            addr: addr.value,
+                            addr2: addr2.value,
+                            useYn: useYn.value,
+                            homepage: homepage.value,
+                            tel: HpNo.value.replaceAll("-", "")
+                        })
+                        alertModal.setModalContent("알림", (obj.resultCode === "00") ? "기업 정보가 수정되었습니다." : "오류가 발생했습니다.")
+                        SetCompanyInfoData(companyId.textContent)
+                        break
+                    case "btn_manager_mod":
+                        obj = await RequestPUTApi("/api/MngInfoUpdateMng", {
+                            dept: managerDept.value,
+                            email: managerEmail.value,
+                            userTel: managerHpNo.value.replaceAll("-", ""),
+                            companyId: companyId.textContent,
+                            userId: managerId.textContent,
+                            class: managerClass.value
+                        })
+                        alertModal.setModalContent("알림", (data.resultCode === "00") ? "관리자 정보가 수정되었습니다." : "오류가 발생했습니다.")
+                        SetCompanyInfoData(companyId.textContent)
+                        break
+                    case "btn_addr_search":
+                        new daum.Postcode({
+                            oncomplete: function (data) {
+                                document.getElementById("addr").value = data.address
+                            }
+                        }).open();
+                        break
+                    case "btn_mod_company_manager" :
+                        obj = await RequestGETApi("/api/ManagerList?companyId=" + getParams("companyId"))
+                        data = ((obj.resultCode === "00") ? obj.resultData.managerList : [])
+
+                        if (data.length === 0) {
+                            blink = "데이터가 없습니다."
+                        } else {
+                            for (const i in data) {
+                                html += "<tr>" +
+                                    "<td class=\"align-middle text-center\">" +
+                                    "    <h6 class=\"mb-0\">" + (i * 1 + 1) + "</h6></td>" +
+                                    "<td class=\"align-middle text-center\">" +
+                                    "    <h6 class=\"mb-0\">" + data[i].userNm + "</h6></td>" +
+                                    "<td class=\"align-middle text-center\">" +
+                                    "    <h6 class=\"mb-0\">" + getHpNo(data[i].HpNo) + "</h6></td>" +
+                                    "<td class=\"align-middle text-center\">" +
+                                    "    <h6 class=\"mb-0\">" + data[i].AuthorCd + "</h6></td>" +
+                                    "<td class=\"align-middle text-center\">" +
+                                    "    <button class=\"btn btn-sm bg-gradient-primary mb-0 text-sm\" data-bs-dismiss='modal' data-bs-toggle='modal' data-bs-target='#AlertModal' " +
+                                    "onclick='onClickChangeCM(\"" + data[i].userId + "\")'>CM으로 변경</button>" +
+                                    "</td>" +
+                                    "</tr>"
+                            }
+                        }
+                        listBlink.innerText = blink
+                        managerList.innerHTML = html
+                        break
+                    case "btn_cancel_search_modal":
+                        manager_form.hidden = true
+                        break
+                }
+            })
+        }
+
+        async function getCompanyUserList(pageNo) {
+            let obj = await RequestGETApi("/api/CompanyUserList?companyId=" + getParams("companyId")
+                + "&searchKey=" + getSelectedValue("searchKey")
+                + "&searchKeyword=" + modal_search_keyword.value
+                + "&pageSize=10"
+                + "&pageNo=" + pageNo)
+
+            let data = (obj.resultCode === "00") ? obj.resultData : []
+
+            let html = ""
+            let blink = ""
+            if (data.CUserList.length !== 0) {
+                let number = 1 + getContentNumber(pageNo)
+                for (const element of data.CUserList) {
+                    number += 1
+                    html += "<tr style=\"cursor: pointer; text-decoration: underline;\" " +
+                        "onclick='onClickCompanyUser(\"" + element.user_id + "\",\"" + element.userNm + "\",\"" + element.HpNo + "\")'>" +
+                        " <td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase\">" + number + "</td>" +
+                        " <td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase\">" + element.userNm + " </td>" +
+                        " <td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase\">" + element.HpNo + " </td></tr>"
+                }
+                getPaginationName(data.totalCnt, pageNo, 10, "getCompanyUserList", "pageNav")
+            } else {
+                blink = "이름 또는 전화번호를 검색해주세요."
+            }
+            userListBlink.innerText = blink
+            companyUserlist.innerHTML = html
+        }
+
+        function onClickCompanyUser(userId, userNm, HpNo) {
+            manager_form.hidden = false
+            modal_userId.textContent = userId
+            modal_managerNm.value = userNm
+            modal_managerHpNo.value = HpNo
+        }
+
+        async function managerAdd() {
+            let obj = await RequestPOSTApi("/api/AddManager", {
+                userId: modal_userId.textContent,
+                companyId: getParams("companyId"),
+                authorCd: getSelectedValue("modal_authorCd")
+            })
+            alertModal.setModalContent("알림", (obj.resultCode === "00") ? modal_managerNm.value + "(이)가 관리자로 추가되었습니다." : "오류가 발생했습니다.")
+            manager_form.hidden = true
+        }
+
+        async function onClickChangeCM(userId) {
+            let obj = await RequestPUTApi("/api/ModManagerAuthor", {
+                companyId: getParams("companyId"),
+                userId: userId
+            })
+            alertModal.setModalContent("알림", ((obj.resultCode === "00") ? "관리자 권한이 변경되었습니다." : "오류가 발생했습니다."))
+            SetCompanyInfoData(getParams("companyId"))
+        }
+
+        function searchEnterKey() {
+            if (window.event.keyCode === 13) {
+                switch (event.target.id) {
+                    case "modal_search_keyword":
+                        getCompanyUserList(1)
+                        break
+                }
+            }
+        }
+
+    </script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/company';">기업관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">기업관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--백버튼-->
+        <div class="card-header-new pb-0 mb-0" id="backButton">
+            <div class="row">
+                <div class="col-md-3">
+                    <h4 class="mt-2">기업관리 상세</h4></div>
+                <div class="col">
+                    <button type="button" class="btn bg-gradient-primary mt-2" id="btn_back">
+                        뒤로가기
+                    </button>
+
+                </div>
+
+                <div class="col text-right">
+                    <button type="button" class="btn bg-gradient-primary mt-2 me-2" id="btn_mod_company_manager"
+                            data-bs-target="#modal_mod_company_manager_author" data-bs-toggle="modal">
+                        관리자 권한 변경
+                    </button>
+
+                    <button type="button" class="btn bg-gradient-primary mt-2" id="btn_add_company_manager"
+                            data-bs-target="#modal_add_company_manager" data-bs-toggle="modal"
+                            onclick="getCompanyUserList(1)">관리자 추가
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!--뷰 상단-->
+
+        <!--상세정보-->
+        <div class="row">
+            <!--회사 정보-->
+            <div class="col p-3 card">
+                <h5>기업 정보</h5>
+                <div id="companyId" hidden></div>
+                <div class="row">
+                    <div class="col row">
+                        <div class="col ms-3">
+                            <h6>사용여부</h6>
+                        </div>
+                        <div class="col ms-5" id="selectUseYnDiv">
+                            <select class='form-control customBorder' id='useYn'
+                                    style='padding: 0; margin: 0; padding-left: 10px;'>
+                                <option value="Y">사용</option>
+                                <option value="N">미사용</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="col row" id="bizBadge" style="visibility: hidden">
+                        <div class="col ms-5">
+                            <h6> 비즈여부</h6>
+                        </div>
+                        <div class="col ms-3" id="bizYn">
+                            <span class="badge bg-gradient-faded-info">비즈사용</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>회사이름</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder disableGray" id="companyNm" disabled/>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>대표자</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder " id="ceoNm"/>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>사업자 번호</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder disableGray" id="bizNum" disabled/>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-3 ms-3">
+                        <h6>주소</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder" id="addr" disabled/>
+                    </div>
+                    <div class="col-2 ms-3 " id="addr_hidden">
+                        <button class="btn btn-sm bg-gradient-primary" id="btn_addr_search"
+                                style="margin-bottom: 0">검색
+                        </button>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>상세주소</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder " id="addr2"/>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>전화번호</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder " id="HpNo"/>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>홈페이지</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder " id="homepage"/>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-8"></div>
+                    <div class="col-3 mt-4">
+                        <button class="btn bg-gradient-primary " style="width: 140px" id="btn_company_mod"
+                                data-bs-toggle="modal" data-bs-target="#AlertModal">기업 수정사항 적용
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!--관리자 정보-->
+            <div class="col ms-3 p-3 card">
+                <h5>담당자 정보</h5>
+                <div class="row">
+
+                    <div id="managerId" hidden></div>
+
+                    <div class="col-md-3 ms-3">
+                        <h6>담당자 이름 (ID)</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder  disableGray" id="managerNm" disabled/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>담당자 전화번호</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder  disableGray" id="managerHpNo" disabled/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>담당자 이메일</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder disableGray" id="managerEmail" disabled/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>담당자 부서</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder " id="managerDept"/>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 ms-3">
+                        <h6>담당자 직급</h6>
+                    </div>
+                    <div class="col ms-3">
+                        <input class="customBorder " id="managerClass"/>
+                    </div>
+                </div>
+
+
+                <div class="row" style="visibility: hidden">
+                    <div class="customBorder"></div>
+                </div>
+
+
+                <div class="row">
+                    <div class="col-8"></div>
+                    <div class="col-3 mt-4">
+                        <button class="btn bg-gradient-primary " style="width: 150px" id="btn_manager_mod"
+                                data-bs-toggle="modal" data-bs-target="#AlertModal">관리자 수정사항 적용
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!--cs 이력-->
+        <div class="row pb-3 mt-3 card" id="csList"></div>
+
+    </div>
+
+
+    <div id="CsAlert"></div>
+
+    <!--관리자 추가 모달-->
+    <div class="modal fade" id="modal_add_company_manager" tabindex="-2" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>관리자 추가</h5>
+                </div>
+                <div class="modal-body">
+
+                    <div class="p-3 container row">
+
+                        <div class="col">
+                            <div class="form-group">
+                                <div class="h6">사용자 검색</div>
+                                <div class="row">
+                                    <div class="col-4">
+                                        <select class="form-control" id="searchKey">
+                                            <option value="userNm">이름</option>
+                                            <option value="HpNo">전화번호</option>
+                                        </select>
+                                    </div>
+                                    <div class="col">
+                                        <div class="input-group input-group-alternative mb-4 ">
+                                            <input class='form-control' id='modal_search_keyword'
+                                                   placeholder='유저 이름 / 전화번호' onkeyup="searchEnterKey()"/>
+                                            <button type="button" class="btn bg-gradient-primary mb-0"
+                                                    id="btn_search_company_user"
+                                                    onclick='getCompanyUserList(1)'>검색
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="table-responsive p-0">
+                                <table class="table align-items-center mb-0">
+                                    <thead id="companyUserHeader">
+                                    <tr>
+                                        <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                            No.
+                                        </th>
+                                        <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                            관리자 명
+                                        </th>
+                                        <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                            전화번호
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="companyUserlist">
+                                    </tbody>
+                                </table>
+                                <p class="text-center text-s font-weight-bold mb-3 mt-2">
+                                <div class='row text-center'>
+                                    <div class='h6 p-5' id="userListBlink"></div>
+                                </div>
+                                </p>
+                            </div>
+                            <nav id="pageNav"></nav>
+                        </div>
+                        <div class="col ps-3" id="manager_form" style="border-left: gray solid 1px" hidden>
+                            <h6 class="mb-2">관리자 정보</h6>
+
+                            <div id="modal_userId" hidden></div>
+
+                            <label>관리자 이름</label>
+                            <input class='form-control mb-2 disableGray'
+                                   id="modal_managerNm"
+                                   placeholder='유저 이름 ' disabled/>
+
+                            <label>관리자 전화번호</label>
+                            <input class='form-control mb-2 disableGray'
+                                   id="modal_managerHpNo"
+                                   placeholder='유저 전화번호' disabled/>
+
+                            <label>관리자 권한등급</label>
+                            <select class="form-control mb-2" id="modal_authorCd">
+                                <option>BM</option>
+                                <option>CM</option>
+                            </select>
+
+                            <div class="text-right">
+                                <button class=" btn bg-gradient-primary mt-3" onclick="managerAdd()"
+                                        data-bs-dismiss="modal" data-bs-target="#AlertModal" data-bs-toggle="modal">
+                                    관리자
+                                    추가
+                                </button>
+                            </div>
+
+
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" data-bs-dismiss="modal" id="btn_cancel_search_modal">
+                        닫기
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!--관리자 변경 모달-->
+    <div class="modal fade" id="modal_mod_company_manager_author" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>관리자 권한 변경</h5>
+                </div>
+                <div class="modal-body ">
+
+                    <div class="ps-3 pe-3 container row ">
+                        <div class="table-responsive p-0" style="overflow-x: hidden">
+                            <table class="table align-items-center mb-0">
+                                <thead id="companyHeader">
+                                <tr>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                        No.
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                        관리자 명
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                        전화번호
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                        권한
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">비고
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody id="managerList">
+                                </tbody>
+                            </table>
+                            <p class="text-center text-s font-weight-bold mb-3 mt-2">
+                            <div class='row text-center'>
+                                <div class='h6 p-5' id="listBlink"></div>
+                            </div>
+                            </p>
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" data-bs-dismiss="modal">닫기
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

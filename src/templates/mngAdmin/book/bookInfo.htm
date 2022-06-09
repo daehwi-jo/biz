@@ -1,0 +1,260 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            getParamsData(location.href)
+            initBookInfo()
+        })
+
+        function initBookInfo() {
+            FunLoadingBarStart()
+            RequestGETApi('/api/BookInfoCsMng?searchGrpId=' + getParams("searchGrpId")).then(function (data) {
+                const gId = getParams("searchGrpId")
+                const iData = data.resultData.userInfo
+                const typeArr = ["회사 ( " + iData.companyNm + " )", "가족", "모임", "개인"]
+
+                document.getElementById("grpNm").textContent = iData.grpNm
+                document.getElementById("grpType").textContent = typeArr[iData.grpTypeCd - 1]
+                document.getElementById("monthAmt").textContent = numberWithCommas(iData.supportAmt) + " 원"
+                document.getElementById("useYn").textContent = iData.limitYn
+                document.getElementById("oneAmt").textContent = numberWithCommas(iData.limitAmt) + " 원"
+                document.getElementById("dayAmt").textContent = numberWithCommas(iData.limitDayAmt) + " 원"
+                document.getElementById("link").textContent = iData.inviteLink
+
+                if (iData.grpTypeCd === "1"){
+                    if (iData.supportYn === "Y"){
+                        bookUserAmt.textContent = "잔여지원금"
+                    }else {
+                        bookUserAmt.textContent = "이달사용액"
+                    }
+                }else {
+                    bookUserAmt.textContent = "이달사용액"
+                }
+
+                setBookLinkStoreList(data.resultData.linkStore)
+                setBookUserList(data.resultData.bookUser)
+
+                if (addCsList("G", gId, "/api/GetBizCsList")) {//csList 삽입
+                    RequestGETApi('/api/GetBizCsList?searchKeyId=' + gId + '&searchType=G').then(function (data) {
+                        setCsList(data.resultData)
+                        FunLoadingBarFinish()
+                    })
+                }
+            })
+        }
+
+        function setBookLinkStoreList(data) {
+            let htmlString = "";
+            if (data == null) {//리스트 비었을때 리스트 비었다고 표시
+                document.getElementById("listBlink1").innerText = "데이터 없음"
+                return
+            }
+            let number = 1
+            for (const element of data) {
+                htmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.restNm + "</p></td>"
+                htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + numberWithCommas(element.prepaidAmt) + " 원</p></td>"
+                htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.joinDate + "</p></td></tr>"
+                number++
+            }
+            document.getElementById("bookLinkStoreList").innerHTML = htmlString
+        }
+
+        function setBookUserList(data) {
+            let htmlString = "";
+            if (data == null) {//리스트 비었을때 리스트 비었다고 표시
+                document.getElementById("listBlink2").innerText = "데이터 없음"
+                return
+            }
+            const cases = {
+                1: "연결완료",
+                2: "승인거절",
+                3: "탈퇴",
+                4: "일시정지",
+                5: "사용중지중"
+            }
+            let number = 1
+            for (const element of data) {
+                htmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.userNm + "</p></td>"
+                htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + numberWithCommas(element.amt) + " 원</p></td>"
+                htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + cases[element.authStat] + "</p></td></tr>"
+                number++
+            }
+            document.getElementById("bookUsersList").innerHTML = htmlString
+        }
+    </script>
+    <script type="text/javascript" src="/public/js/commons/csList.js"></script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/book';">회원장부관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">회원관리장부 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--백버튼-->
+        <div class="card-header-new pb-0 mb-0" id="backButton">
+            <div class="row">
+                <div class="col-md-3">
+                    <h4 class="mt-2">회원장부관리 상세</h4></div>
+                <div class="col">
+                    <button type="button" class="btn bg-gradient-primary mt-2" onclick="location.href='/admin/book'">
+                        뒤로가기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!--화면 상단-->
+        <div class="card">
+            <div class="row">
+                <div class="col ms-3 p-3" id="BookInfoCol">
+                    <h5>장부 정보</h5>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>장부명</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="grpNm">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>장부용도</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="grpType">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>월 사용한도</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="monthAmt">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>사용제한 설정</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="useYn">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>1회 사용금액</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="oneAmt">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>일 사용한도</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="dayAmt">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>초대링크</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="link">데이터</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!--cs 이력-->
+                <div class="col ms-3" id="csList" style="height: 210px"></div>
+
+            </div>
+        </div>
+
+
+        <!--화면 하단-->
+        <div class="row mt-4">
+            <!--연결 가맹점-->
+            <div class="col card ms-3 me-2 p-3">
+                <h5>연결 가맹점</h5>
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0 mt-3">
+                        <thead id="bookLinkStoreHeader">
+                        <tr>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">NO.
+                            </th>
+                            <th class="text-uppercase text-center text-secondary text-s font-weight-bolder opacity-6">
+                                가맹점명
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                충전잔액
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                틍록일
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="bookLinkStoreList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink1"></p>
+                </div>
+            </div>
+            <!--장부 사용자-->
+            <div class="col card me-3 ms-2 p-3">
+                <h5>장부 사용자</h5>
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0 mt-3">
+                        <thead id="bookUsersHeader">
+                        <tr>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">NO.
+                            </th>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                사용자명
+                            </th>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center"
+                                id="bookUserAmt">
+                                지원금
+                            </th>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                상태
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="bookUsersList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink2"></p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!--alert modal (cs내역 저장)-->
+    <div id="CsAlert"></div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

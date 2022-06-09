@@ -1,0 +1,111 @@
+<html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+    }
+
+    html {
+        width: 100%;
+        height: 100%;
+        overflow-y: hidden;
+    }
+
+    body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    iframe {
+        overflow: hidden;
+    }
+</style>
+
+<head>
+    <meta charset="UTF-8">
+    <title>다음 주소 검색</title>
+</head>
+
+<body>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+<script>
+
+    var isEmpty = function (value) {
+        if (value == "" || value == null || value == undefined || (value != null && typeof value == "object" && !Object.keys(value).length)) {
+            return true
+        }
+        else {
+            return false
+        }
+    };
+
+    var urlParams;
+    (window.onpopstate = function () {
+        var match,
+            pl = /\+/g,  // Regex for replacing addition symbol with a space
+            search = /([^&=]+)=?([^&]*)/g,
+            decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+            query = window.location.search.substring(1);
+
+        urlParams = {};
+        while (match = search.exec(query))
+            urlParams[decode(match[1])] = decode(match[2]);
+    })();
+
+    //본 예제에서는 도로명 주소 표기 방식에 대한 법령에 따라, 내려오는 데이터를 조합하여 올바른 주소를 구성하는 방법을 설명합니다.
+    function openDaumWebAddress() {
+        new daum.Postcode({
+            width: '100%',
+            height: '100%',
+            hideMapBtn: true,
+            oncomplete: function (data) {
+
+                var roadAddr = data.roadAddress; // 도로명 주소 변수
+                var extraRoadAddr = ''; // 참고 항목 변수
+
+
+                if (data.buildingName !== '') {
+                    extraRoadAddr += (extraRoadAddr !== '' ? ', ' + data.buildingName : data.buildingName);
+                }
+
+
+                console.log(data.zonecode);
+                console.log(roadAddr);
+                console.log(extraRoadAddr);
+
+                // 우편번호, 도로명주소, 상세주소 콜백
+                // null check
+                var os = [[.os]];
+                if (!isEmpty(os)) {
+                    // 도로명 주소 선택 여부
+                    var isRoadSelected = data.userSelectedType == "R"
+
+                    if (os == "A") {
+                        // aos bridge 함수 실행
+                        window.AddressApp.setAddress(data.jibunAddress, roadAddr, extraRoadAddr, data.zonecode, isRoadSelected);
+                    } else if (os == "I") {
+                        // ios bridge 함수 실행
+                        var message = {
+                            'addr': data.jibunAddress,
+                            'roadAddr': roadAddr,
+                            'detailAddr': extraRoadAddr,
+                            'zipCode': data.zonecode,
+                            'isRoadSelected': isRoadSelected,
+                        };
+                        webkit.messageHandlers.callbackHandler.postMessage(message);
+                    }
+                }
+
+
+            }
+        }).embed(document.body);
+    }
+
+    openDaumWebAddress();
+</script>
+
+</body>
+
+</html>

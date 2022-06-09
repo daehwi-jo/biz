@@ -1,0 +1,580 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        window.addEventListener("load", function() {
+            getList(1);
+        });
+
+        function  getList(pageNo) {
+            let pageSize=20;
+
+            let sendData = {
+                pageNo:pageNo,
+                pageSize:pageSize,
+                searchEndDt: $("#endDate").val().replaceAll('-',''),
+                searchStartDt: $("#startDate").val().replaceAll('-',''),
+                searchText:document.getElementById("searchText").value,
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/GetPaidList', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                console.log(res)
+                let html="";
+
+                if (res.resultList.length > 0) {
+                    res.resultList.forEach(function(v) {
+
+                        html += '<tr>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <input type="checkbox" class="chkbox_group" name="chkbox" value="'+v.restPaymentId+'">';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.restNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.busId+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.paymentDt+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center" style="background-color:#d9d9d9;color:#0d0626;">';
+                        html += '	       <a href="javascript:paidInfo(\''+v.restPaymentId+'\');" style="text-decoration: underline;"><span class="text-secondary text-xs font-weight-bold">'+v.settlmntDt+'</span></a>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.paymentCnt)+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.paymentAmt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right" style="background-color:#d9d9d9;color:#0d0626;">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.restPaymentAmt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.totFee)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.cancelCnt)+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-right">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.cancelAmt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.resultMsg+'</span>';
+                        html += '     </td>';
+                        html += '</tr>';
+
+                    });
+                }
+                document.getElementById("resultList").innerHTML = html;
+                getPagination(res.resultData[0].TOTAL_COUNT,pageNo,pageSize,"getList");
+                document.getElementById("totalCnt").innerText = res.resultData[0].TOTAL_COUNT;
+                document.getElementById("allTotFee").innerText = Format_comma2(res.resultData[0].ALL_TOT_FEE);
+                document.getElementById("allRestPaymentAMT").innerText = Format_comma2(res.resultData[0].ALL_REST_PAYMENT_AMT);
+                document.getElementById("allPaymentAmt").innerText =Format_comma2( res.resultData[0].ALL_PAYMENT_AMT);
+
+            });
+        };
+
+
+
+
+
+        function chkAll() {
+            if ($("#checkAll").is(':checked')) {
+                $("input[type=checkbox]").prop("checked", true);
+            } else {
+                $("input[type=checkbox]").prop("checked", false);
+            }
+        }
+
+
+        function  sendPayReq() {
+
+            if (sessionStorage.getItem('loginId')==null){
+                return;
+            }
+
+            let chkData="";
+            var obj_length = document.getElementsByName("chkbox").length;
+            for (var i=0; i<obj_length; i++) {
+                if (document.getElementsByName("chkbox")[i].checked == true) {
+                    chkData += "'"+document.getElementsByName("chkbox")[i].value+"'" +","
+                }
+            }
+            if (chkData==""){
+                alert("지급 요청할 가맹점을 선택하세요.")
+                return;
+            }
+
+            FunLoadingBarStart();
+
+            let sendData = {
+                restPaymentIdArray: chkData.substr(0,chkData.length-1)
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/PaidReq', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+               // console.log(res)
+                if (res.resultCode == "00"){
+                    location.reload();
+                }else if (res.resultCode == "99"){
+                    FunLoadingBarFinish();
+                    alert(res.resultMsg);
+                    return;
+                }else{
+                    FunLoadingBarFinish();
+                    alert("통신 오류");
+                    return;
+                }
+            });
+        };
+
+        function changeDatechk(){
+            let chkData="";
+            var obj_length = document.getElementsByName("chkbox").length;
+            for (var i=0; i<obj_length; i++) {
+                if (document.getElementsByName("chkbox")[i].checked == true) {
+                    chkData += "'"+document.getElementsByName("chkbox")[i].value+"'" +","
+                }
+            }
+            if (chkData==""){
+                alert("변경할 데이터를 선택해주세요.")
+                return;
+            }
+            $("#chDataBtn").click();
+        }
+
+
+        function paidInfo(restPaymentId){
+            let sendData = {
+                restPaymentId:restPaymentId,
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/GetPaidInfo', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //console.log(res)
+
+                if (res.resultCode=="00"){
+                    document.getElementById("p_restNm").innerText=res.resultData.restNm
+                    document.getElementById("p_busId").innerText=res.resultData.busId
+                    document.getElementById("p_paymentDt").innerText=res.resultData.paymentDt
+                    document.getElementById("p_paymentAmt").innerText=Format_comma2(res.resultData.paymentAmt)+"원";
+                    document.getElementById("p_settlmntDt").value=res.resultData.settlmntDt
+                    document.getElementById("p_restPaymentAmt").value=Format_comma2(res.resultData.restPaymentAmt);
+                    document.getElementById("p_restPaymentId").value=restPaymentId;
+                    $("#pop_paidInfoBtn").click();
+                }else{
+                    alert("데이터가 잘못되었습니다.")
+                    return;
+                }
+
+            });
+
+
+        }
+
+
+        function setPaidInfo(){
+
+            let p_settlmntDt = document.getElementById("p_settlmntDt").value;
+            let p_restPaymentAmt = document.getElementById("p_restPaymentAmt").value;
+            let p_restPaymentId=document.getElementById("p_restPaymentId").value;;
+
+
+            if (p_settlmntDt==""){
+                alert("지급 요청 날짜를 선택해주세요.")
+                return;
+            }
+
+            if (p_restPaymentAmt==""){
+                alert("지급 금액을 입력해주세요.")
+                return;
+            }
+
+            if (p_restPaymentId==""){
+                alert("지급 요청 대상 선택 오류")
+                return;
+            }
+
+            let sendData = {
+                settlmntDt: p_settlmntDt.replaceAll('-',''),
+                restPaymentAmt:p_restPaymentAmt.replaceAll(',',''),
+                restPaymentId:p_restPaymentId,
+            };
+            var opts = {method: 'PUT', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/SetPaidInfo', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                //console.log(res)
+                if (res.resultCode=="00"){
+                    alert("수정하였습니다.")
+                    $("#pop_paidInfoBtnCancel").click();
+                    getList(1);
+                }else{
+                    alert("수정 실패.")
+                    return;
+                }
+
+            });
+
+
+        }
+
+
+
+
+
+
+
+        function  settlmentDataCh() {
+
+            if (sessionStorage.getItem('loginId')==null){
+                return;
+            }
+
+            let chkData="";
+            var obj_length = document.getElementsByName("chkbox").length;
+            for (var i=0; i<obj_length; i++) {
+                if (document.getElementsByName("chkbox")[i].checked == true) {
+                    chkData += "'"+document.getElementsByName("chkbox")[i].value+"'" +","
+                }
+            }
+            if (chkData==""){
+                alert("변경할 데이터를 선택해주세요.")
+                return;
+            }
+
+            if ($("#ch_date").val()==""){
+                alert("날짜를 선택해주세요.")
+                return;
+            }
+
+            FunLoadingBarStart();
+
+            let sendData = {
+                restPaymentIdArray: chkData.substr(0,chkData.length-1),
+                settlmntDt:$("#ch_date").val().replaceAll('-',''),
+            };
+            var opts = {method: 'PUT', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/settlmntDtCh', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                // console.log(res)
+                if (res.resultCode == "00"){
+                    location.reload();
+                }else if (res.resultCode == "99"){
+                    FunLoadingBarFinish();
+                    alert(res.resultMsg);
+                    return;
+                }else{
+                    FunLoadingBarFinish();
+                    alert("통신 오류");
+                    return;
+                }
+            });
+        };
+
+
+
+
+        function  getExcelList() {
+            let sendData = {
+                searchEndDt: $("#endDate").val().replaceAll('-',''),
+                searchStartDt: $("#startDate").val().replaceAll('-',''),
+                searchText:document.getElementById("searchText").value,
+            };
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/payment/GetPaidExcel', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                console.log(res)
+
+                if (res.resultList != null){
+                    itemsExcelList=res.resultList;
+                    excelDown2();
+                }else{
+                    alert('데이터가 없습니다.')
+                }
+            });
+            FunLoadingBarFinish();
+        };
+
+
+
+        function excelDown2(){
+            // 컬럼 이름
+            const excelHeader = ["가맹점","사업자번호","결제일자","지급요청일","결제수단","금융사","상품명","결제금액","지급금액","수수료","휴대폰번호","구매자","가맹점명"];
+            var dataWS = XLSX.utils.json_to_sheet(itemsExcelList);
+            //console.log(this.itemsExcelList);
+            const range = XLSX.utils.decode_range(dataWS['!ref']);
+            for(let c = range.s.c; c <= range.e.c; c++) {
+                const header = XLSX.utils.encode_col(c) + '1'
+                dataWS[header].v =excelHeader[c];
+            }
+
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, dataWS, '지급요청대상내역');
+
+            XLSX.writeFile(wb, '지급요청대상내역.xlsx');
+        }
+
+        function inputKeywordEnter(){
+            if(event.keyCode == 13){
+                getList(1)
+                return;
+            }
+
+        }
+    </script>
+    <script src="/public/js/utils/xlsx.js"></script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="route" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder"><a class="opacity-5 text-dark" href="javascript:;">지급요청대상</a></li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row card" id="searchBar">
+            <div class="row ms-3 mt-3">
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="bookGrpId">
+                                <option value="">가맹점</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" placeholder="검색" type="text" id="searchText" onkeydown="inputKeywordEnter(); return;">
+                            <span class="input-group-text"><i class="ni ni-zoom-split-in"></i></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value=""  id="startDate" onchange="getList(1)">
+                </div>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value=""  id="endDate" onchange="getList(1)">
+                </div>
+                <div class="col">
+                    <div class="input-group input-group-alternative mb-3">
+                        <button type="button" class="btn bg-gradient-primary" id="searchButton" onclick="getList(1)">조회</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row card mb-4 mt-4">
+
+            <div class="card-header pb-0" id="allCount">
+                <div class="row ms-3 mt-3">
+                    <div class="col-md-2 me-3 mt-2">
+                        <button type="button" class="btn bg-gradient-primary"   onclick="changeDatechk();">지급요청일 변경</button>
+                        <button type="button" data-bs-toggle="modal" data-bs-target="#pop_date_ch" style="display: none;" id="chDataBtn"></button>
+                        <button type="button" data-bs-toggle="modal" data-bs-target="#paidInfo" style="display: none;" id="pop_paidInfoBtn"></button>
+                    </div>
+                    <div class="col-md-2 me-3 mt-2">
+                        <div class="bg-gradient-danger btn" type="button"  onclick="sendPayReq();">지급요청</div>
+                    </div>
+                    <div class="col-md-2 me-3 mt-2">
+                        <button type="button" class="btn bg-gradient-primary"  onclick="getExcelList()">Excel Down</button>
+                    </div>
+                </div>
+            </div>
+
+            <!--본문-->
+            <div class="card-body px-0 pt-0 pb-2">
+                <br>
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">
+                                <input type='checkbox' id="checkAll"  onclick="chkAll();"  />
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">가맹점</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">사업자번호</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7" >결제일</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7" style="background-color:#d9d9d9;color:#0d0626;">지급요청일</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">결제건수</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">결제금액</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7" style="background-color:#d9d9d9;color:#0d0626;">지급금액</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">총수수료</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">취소건수</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">취소금액</th>
+                            <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">실패사유</th>
+                        </tr>
+                        </thead>
+                        <tbody id="resultList">
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="row ms-3 mt-3">
+                    <div class="col-md-1 me-3 mt-2">
+                        <p>전체 건수 : </p>
+                    </div>
+                    <div class="col-md-1 me-3 mt-2">
+                        <p class="text-bold"><span id="totalCnt">0</span> 건</p>
+                    </div>
+                    <div class="col-md-1 me-3 mt-2">
+                        <p>총 결제금액 : </p>
+                    </div>
+                    <div class="col-md-2 me-3 mt-2">
+                        <p class="text-bold"><span id="allPaymentAmt">0</span> 원</p>
+                    </div>
+                    <div class="col-md-1 me-3 mt-2">
+                        <p>총 지급금액 : </p>
+                    </div>
+                    <div class="col-md-2 me-3 mt-2">
+                        <p class="text-bold"><span id="allRestPaymentAMT">0</span> 원
+                        </p>
+                    </div>
+                    <div class="col-md-1 me-3 mt-2">
+                        <p >총 수수료 : </p>
+                    </div>
+                    <div class="col-md-2 me-3 mt-2">
+                        <p class="text-bold"><span id="allTotFee">0</span>원
+                        </p>
+                    </div>
+                </div>
+                <!--페이징-->
+                <nav id="pageNav"></nav>
+            </div>
+
+        </div>
+
+
+
+    </div>
+
+    <div class="modal fade" id="paidInfo" tabindex="-1" role="dialog" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">지급 요청 수정</h5>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <input type="hidden" id="p_restPaymentId">
+                        <div class="card">
+                            <div class="row">
+                                <div class="col ms-3 p-3" >
+                                    <div class="row">
+                                        <div class="col-md-3 ms-3 mt-3">
+                                            <h6>가맹점</h6>
+                                        </div>
+                                        <div class="col ms-3 mt-2">
+                                             <div class="customBorder2" id="p_restNm"></div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-3 ms-3 mt-3">
+                                            <h6>사업자 번호 </h6>
+                                        </div>
+                                        <div class="col ms-3 mt-2">
+                                            <div class="customBorder2" id="p_busId"></div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-3 ms-3 mt-3">
+                                            <h6>결제일</h6>
+                                        </div>
+                                        <div class="col ms-3 mt-2">
+                                            <div class="customBorder2" id="p_paymentDt"></div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-3 ms-3 mt-3">
+                                            <h6>결제금액</h6>
+                                        </div>
+                                        <div class="col ms-3 mt-2">
+                                            <div class="customBorder2" id="p_paymentAmt"></div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-3 ms-3 mt-3">
+                                            <h6>지급요청일</h6>
+                                        </div>
+                                        <div class="col ms-3 mt-2">
+                                            <input class="form-control" type="date"  id="p_settlmntDt">
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-3 ms-3 mt-3">
+                                            <h6>지급금액</h6>
+                                        </div>
+                                        <div class="col ms-3 mt-2">
+                                            <input class="form-control" type="text"   id="p_restPaymentAmt">
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-primary" onclick="setPaidInfo();">수정</button>
+                    <button type="button" class="btn bg-gradient-secondary" id="pop_paidInfoBtnCancel" data-bs-dismiss="modal">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="pop_date_ch" tabindex="-1" role="dialog" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">지급 요청일 변경</h5>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <ul class="list-group">
+                            <li class="list-group-item border-0 ps-0 pt-0 text-sm ">
+                                <strong class="text-dark">변경 날짜</strong>
+                                <input class="form-control" type="date" value=""  id="ch_date">
+                            </li>
+
+                        </ul>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-primary" onclick="settlmentDataCh();">변경</button>
+                    <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal">취소</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

@@ -1,0 +1,302 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+    <script type="text/javascript">
+
+
+        window.addEventListener("load", function() {
+            getData()
+        });
+
+        function  getData() {
+
+            let sendData = {
+                orderNo:[[.orderNo]]
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetOrderInfo', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                console.log(res)
+
+
+                document.getElementById("orderNo").innerText = res.resultData.orderNo;
+                document.getElementById("restNm").innerText = res.resultData.restNm;
+                document.getElementById("orderDate").innerText = res.resultData.orderDate;
+                document.getElementById("grpNm").innerText = res.resultData.grpNm;
+                document.getElementById("totalAmt").innerText = Format_comma2(res.resultData.totalAmt)+'원';
+
+                if (res.resultData.restType=="G"){
+                    document.getElementById("orderCancelBtn").style="display:none;"
+                }
+
+                let statNm='주문완료'
+                if (res.resultData.orderStat=="21"){
+                    statNm='<span style="color: red;">주문취소('+res.resultData.orderCancelDate+')</span>'
+                }
+                document.getElementById("orderStat").innerHTML = statNm;
+
+                let menuHtml=""
+                res.resultData.totalMenu.forEach(function(v) {
+                    menuHtml += '<tr>';
+                    menuHtml += '     <td class="align-middle text-left">';
+                    menuHtml += '	        <span class="text-secondary text-xs ">'+v.menuNm+'</span>';
+                    menuHtml += '     </td>';
+                    menuHtml += '     <td class="align-middle text-left">';
+                    menuHtml += '	        <span class="text-secondary text-xs ">'+Format_comma2(v.menuQty)+'개</span>';
+                    menuHtml += '     </td>';
+                    menuHtml += '     <td class="align-middle text-center">';
+                    menuHtml += '	        <span class="text-secondary text-xs ">'+Format_comma2(v.menuPrice)+'원</span>';
+                    menuHtml += '     </td>';
+                    menuHtml += '</tr>';
+
+                    if (v.cpno !==""){
+                        menuHtml += '<tr>';
+                        menuHtml += '     <td class="align-middle text-left">';
+                        menuHtml += '	        <span class="text-secondary text-xs " colspan="4">사용처 : '+v.exchcoNm+'('+v.exchplc+')</span>';
+                        menuHtml += '     </td>';
+                        menuHtml += '</tr>';
+                        menuHtml += '<tr>';
+                        menuHtml += '     <td class="align-middle text-left">';
+                        menuHtml += '	        <span class="text-secondary text-xs " colspan="4">사용기한 : '+v.expireDate+'</span>';
+                        menuHtml += '     </td>';
+                        menuHtml += '</tr>';
+                        menuHtml += '<tr>';
+                        menuHtml += '     <td class="align-middle text-left">';
+                        menuHtml += '	        <span class="text-secondary text-xs " colspan="4">상태 : '+v.cpnoStatus+'</span>';
+                        menuHtml += '     </td>';
+                        menuHtml += '</tr>';
+                    }
+                });
+                document.getElementById("menuList").innerHTML = menuHtml;
+
+                let userHtml=""
+                res.resultData.usersList.forEach(function(u) {
+                    userHtml += '<tr>';
+                    userHtml +=   '<td class="align-middle text-left" colspan="2"><p class="text-s font-weight-bold mb-0">' + u.userNm + '</p></td>'
+                    userHtml +=   '<td class="align-middle text-right" ><p class="text-s font-weight-bold mb-0 " style="color: #825aff">' + Format_comma2(u.orderAmt) + '원</p></td>'
+                    userHtml += '</tr>';
+                    userHtml += '<tr><table>'
+
+                    u.menus.forEach(function(m) {
+                        userHtml += '<tr>';
+                        userHtml +=   '<td><span class="text-secondary text-xs ms-5">'+m.itemNm+'</span> </td>'
+                        userHtml +=   '<td><span class="text-secondary text-xs ms-5">'+Format_comma2(m.orderQty)+'</span></td>'
+                        userHtml +=   '<td><span class="text-secondary text-xs ms-5">'+Format_comma2(m.orderAmt)+'</span></td>'
+                        userHtml += '</tr>';
+
+                    });
+                    userHtml += "</table></tr>";
+                });
+                document.getElementById("userList").innerHTML = userHtml;
+
+
+            });
+
+            FunLoadingBarFinish();
+        };
+
+        function orderCancel(){
+
+            let sendData = {
+                orderNo:[[.orderNo]]
+
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/SetOrderCancel', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+            //    console.log(res)
+
+
+                if (res.resultCode=="00"){
+                    alert("취소 하였습니다.")
+                    location.reload();
+                }else{
+                    alert(res.resultMsg);
+                }
+                FunLoadingBarFinish();
+
+            });
+
+        }
+
+        function back(){
+            history.back(0);
+        }
+
+    </script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/store';">주문관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">주문상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4 mb-8">
+
+        <!--백버튼-->
+        <div class="card-header-new pb-0 mb-0" id="backButton">
+            <div class="row">
+                <div class="col-md-3">
+                    <h4 class="mt-2">주문상세</h4></div>
+                <div class="col">
+                    <button type="button" class="btn bg-gradient-primary mt-2" onclick="back();">
+                        뒤로가기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!--장부 정보-->
+        <div class="card">
+            <div class="row">
+                <div class="col ms-3 p-3">
+                    <h5>주문 정보</h5>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-3">
+                            <h6>주문 번호</h6>
+                        </div>
+                        <div class="col ms-3 mt-3">
+                            <div id="orderNo"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-3">
+                            <h6>주문 시간</h6>
+                        </div>
+                        <div class="col ms-3 mt-3">
+                            <div  id="orderDate"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-3" >
+                            <h6 >주문금액</h6>
+                        </div>
+                        <div class="col ms-3 mt-3 font-weight-bold" style="color: #825aff">
+                            <div  id="totalAmt"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-3">
+                            <h6>가맹점</h6>
+                        </div>
+                        <div class="col ms-3  mt-3">
+                            <div  id="restNm"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-3">
+                            <h6>장부</h6>
+                        </div>
+                        <div class="col ms-3  mt-3">
+                            <div id="grpNm"></div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-3">
+                            <h6>주문상태</h6>
+                        </div>
+                        <div class="col ms-3  mt-3">
+                            <div id="orderStat"></div>
+                        </div>
+                    </div>
+
+
+                </div>
+
+                <div class="col ms-3 p-3">
+                    <h5>메뉴</h5>
+                    <table class="table align-items-center mb-0">
+                        <tbody id="menuList">
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <!--연결 장부-->
+            <div class="card col ms-3 p-3">
+                <h5>사용자별 주문내역</h5>
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0 mt-3">
+                        <thead id="linkHeader">
+                        <tr>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">이름</th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6"></th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">금액</th>
+                        </tr>
+                        </thead>
+                        <tbody id="userList">
+
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!--기타-->
+            <div class="col card ms-3 me-3 p-3">
+                <div class="col">
+                    <button type="button" id="orderCancelBtn" class="btn  btn-danger mt-2" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#pop_orderCancel">
+                       주문취소
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="modal fade" id="pop_orderCancel" tabindex="-1" role="dialog" aria-hidden="true" data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header"><h5 class="modal-title">주문  취소</h5></div>
+                    <div class="modal-body">
+                        <div id="delGrpId" hidden></div>
+                        <div>주문을 취소 하시겠습니까?</div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                                id="modelGrpBookDelCancel">아니요
+                        </button>
+                        <button type="button" class="btn bg-gradient-danger" data-bs-dismiss="modal"
+                                id="modelGrpBookDelCommit" data-bs-toggle="modal" onclick='orderCancel()' data-bs-target="#AlertModal">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

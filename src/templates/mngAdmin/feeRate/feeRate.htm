@@ -1,0 +1,204 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            getFeeRateList(1)
+        });
+
+        function getFeeRateList(pageNo) {
+            const contentNum = document.getElementById("contentNum").value
+
+            fetch("/api/admin/fee?"
+                + "restNm=" + document.getElementById("restNm").value
+                + "&useYn=" + document.getElementById("useYn").value
+                + "&pageSize=" + contentNum
+                + "&pageNo=" + pageNo).then(function (response) {
+                return response.json()
+            }).then(function (json) {
+                const data = (json.resultCode === "00") ? json.resultData : null
+
+                if (!!data) {
+                    let html = ""
+                    let blink = ""
+                    let number = getContentNumber(pageNo, contentNum) + 1
+                    const feeList = data.feeRateList
+                    const totalCount = data.totalCount
+
+                    if (feeList.length === 0) {
+                        blink = "데이터가 없습니다."
+                    } else {
+                        for (const feeData of feeList) {
+                            html += "<tr>" +
+                                "<td class=\"text-center text-sm font-weight-bolder\">" + number + "</td>" +
+                                "<td class=\"text-center text-sm font-weight-bolder\">" + feeData.restNm + "</td>" +
+                                "<td class=\"text-center text-sm font-weight-bolder\">" + feeData.ceoNm + "</td>" +
+                                "<td class=\"text-center text-sm font-weight-bolder\">" + getHpNo(feeData.tel) + "</td>" +
+                                "<td class=\"text-center text-sm font-weight-bolder\">" + ((feeData.paymentHod === "BANK")
+                                    ? "<span class='badge text-sm bg-info ' style='margin: 0;'>은행</span>"
+                                    : "<span class='badge text-sm bg-secondary ' style='margin: 0;'>카드</span>") + "</td>" +
+                                "<td class=\"text-center text-xs font-weight-bolder\">" + ((feeData.useYn === 'Y')
+                                    ? "<span class='badge text-xs  bg-gradient-faded-success' style='margin: 0;'>사용중</span>"
+                                    : "<span class='badge text-xs  bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>") + "</td>" +
+                                "<td class=\"text-center text-xs font-weight-bolder\">" +
+                                "<div class='row'>"+
+
+                                "<div class='col-5'>"+
+                                "<label class='text-sm me-3'>"+feeData.restFee+"%</label>"+
+                                "</div>"+
+
+                                "<div class='col-7'>"+
+                                "<input class='customBorder text-right' id='restFee" + number + "' value='' type='number' style='width: 80px;  " +((feeData.useYn === 'N')?"display:none;":"")+"'/>" +
+                                "<button class='btn btn-sm bg-gradient-primary ms-1 mb-0 ps-3 pe-3' style='height: 100%;"+((feeData.useYn === 'N')?"display: none;":"")+"'"+
+                                "onclick='onClickModFeeRate(\"" + feeData.restId + "\",\"" + number + "\",\"" + feeData.paymentHod+ "\",\""+ pageNo +"\")'" +
+                                "data-bs-toggle='modal' data-bs-target='#AlertModal'>변경</button>" +
+                                "</div>"+
+
+                                "</div>"+
+                                "</td>" +
+                                "<td class=\"text-right text-sm font-weight-bolder\">" + feeData.startDate + "</td>" +
+                                "<td class=\"text-right text-sm font-weight-bolder\">" + feeData.endDate + "</td>" +
+                                "</tr>"
+                            number++
+                        }
+                        getPagination(totalCount, pageNo, contentNum, "getFeeRateList");
+                    }
+                    document.getElementById("feeRateList").innerHTML = html
+                    document.getElementById("listBlink").innerHTML = blink
+                }
+            })
+        }
+
+        function onClickModFeeRate(restId, num, paymentHod, pageNo) {
+            FunLoadingBarStart()
+            alertModal.setModalContent("알림","잠시만 기다려주세요.")
+            const opts = {
+                method: 'PUT', body: JSON.stringify({
+                    restId: restId
+                    , paymentHod: paymentHod
+                    , useYn : 'N'
+                    , restFee: document.getElementById("restFee" + num).value
+                }), headers: {"Content-Type": "application/json"}
+            }
+
+            fetch("/api/admin/fee", opts).then(function (response) {
+                return response.json()
+            }).then(function (data) {
+                alertModal.setModalContent("알림",((data.resultCode === "00")?"변경 되었습니다.":"오류가 발생했습니다."))
+                getFeeRateList(pageNo)
+                FunLoadingBarFinish()
+            })
+        }
+
+    </script>
+
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">수수로율 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>수수로율 관리</h5>
+        </div>
+        <!--검색바-->
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <label for="useYn" class="mb-0">사용여부</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="useYn" onchange='getFeeRateList(1)'>
+                                <option value="">전체</option>
+                                <option value="Y">사용</option>
+                                <option value="N">미사용</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class=" form-group">
+                        <label for="restNm" class="mb-0">가맹점명</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search"
+                                   type="text" id="restNm" onkeyup='searchEnterKey(getFeeRateList)'>
+                            <span class=" input-group-text">
+                                    <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                            <button class="btn bg-gradient-primary mb-0" id="searchBtn" onclick="getFeeRateList(1)">조회
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                    </div>
+
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getFeeRateList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-uppercase text-xs font-weight-bolder opacity-7">No.</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">가맹점명</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">대표자명</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">연락처</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">결제수단</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-left  text-secondary text-xs font-weight-bolder opacity-7">수수료율</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">시작일시</th>
+                            <th class="text-center  text-secondary text-xs font-weight-bolder opacity-7">종료일시</th>
+                        </tr>
+                        </thead>
+                        <tbody id="feeRateList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

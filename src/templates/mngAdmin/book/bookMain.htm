@@ -1,0 +1,444 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<!--내용물 하드 코딩으로 박혔있음-->
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            getBookMainList(1)
+        });
+
+        async function getBookMainList(pageNo) {
+            FunLoadingBarStart()
+            setParams("pageNo",pageNo)
+
+            const contentNum = getSelectedValue("contentNum")
+            const obj = await RequestGETApi("/api/BizBookMng?"
+                + "searchKey=" + getSelectedValue("searchSelect")
+                + "&searchKeyword=" + searchText.value
+                + "&pageSize=" + contentNum
+                + "&pageNo=" + pageNo)
+
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+
+            if (!!data) {
+                let html = ""
+                let blink = ""
+                if (data.bookList.length !== 0) {
+                    let number = 1 + getContentNumber(pageNo, contentNum)
+                    for (const element of data.bookList) {
+                        html += "<tr>"
+                        html += "       <td class=\"align-middle text-center text-xs\">" + number + "</td>"
+                        html += "   <td>"
+                        html += "       <div class=\"d-flex px-2 py-1\">"
+                        html += "           <div class=\"d-flex flex-column justify-content-center\">"
+                        html += "               <h6 class=\"mb-0 text-xs\">" + element.userNm + "</h6>"
+                        html += "          </div>"
+                        html += "       </div>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0\">"
+                        html += "           <a style=\"text-decoration: underline;\" href=/admin/bookInfo?searchGrpId=" + element.grpId + ">" + element.grpNm + "</a>"
+                        html += "       </p>"
+                        html += "   </td>"
+                        html += "<td class=\"align-middle text-center\">"
+                        html += ((element.useYn !== 'Y')
+                            ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                            : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>")
+                        html += "</td>"
+                        html += "   <td class=\"text-right\">"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0\">" + element.storeCnt + " 개</p>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0\">" + numberWithCommas(element.prepaidAmt) + " 원</p>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <span class=\"text-secondary text-xs font-weight-bold\">" + numberWithCommas(element.unpaidAmt) + " 원</span>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <a class=\"btn btn-sm bg-gradient-secondary mb-0\" onclick='getBookData(\"" + element.grpId + "\")' data-bs-target='#mod_grp_modal' data-bs-toggle='modal'>"
+                        html += "           <i class=\"ms-1 fas fa-pencil-alt text-dark me-2\" />수정</i>"
+                        html += "       </a>"
+                        html += "   </td>"
+                        html += "</tr>"
+                        number++;
+                    }
+                    getPagination(data.totalCount, pageNo, contentNum, "getBookMainList");
+                } else {
+                    blink = "데이터 없음"
+                }
+                document.getElementById("bookList").innerHTML = html
+                document.getElementById("listBlink").innerText = blink
+            }
+            FunLoadingBarFinish()
+        }
+
+        function getBookData(grpId) {
+            fetch('/api/BookData?grpId=' + grpId).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData.bookData[0] : null
+
+                modal_grpId.textContent = data.grpId//장부 아이디
+                getSelectedIndexV("modal_useYn", data.useYn) //장부 사용여부
+
+                modal_grpNm.value = data.grpNm  //장부 이름
+                modal_grpNm_label.textContent = "장부명 (" + data.grpId + ")"
+                getSelectedIndexV("modal_grpTy", data.grpTypeCd) //장부 타입
+
+                getSelectedIndexV("modal_supportYn", data.supportYn) //지원금 사용여부
+                modal_supportAmt.value = data.supportAmt //지원금 기준금액
+                getSelectedIndexV("modal_supportExceedYn", data.supportExceedYn) //지원금 초과사용 가능여부
+                getSelectedIndexV("modal_supportForwardYn", data.supportForwardYn) //지원금 이월여부
+
+                getSelectedIndexV("modal_limitYn", data.limitYn) //사용제한설정
+                modal_limitAmt.value = data.limitAmt //1회 사용금액 한도
+                modal_limitDayAmt.value = data.limitDayAmt //1일 사용금액 한도
+                modal_limitDayCnt.value = data.limitDayCnt //1일 사용횟수 한도
+
+                modal_linkBox.hidden = (data.grpTypeCd !== "1")
+                supportYnOnChange(modal_supportYn)
+                limitYnOnChange(modal_limitYn)
+
+                modal_supportInvite.value = data.inviteLink //초대링크
+                modal_intro.value = data.intro //장부설명
+
+            })
+        }
+
+        function supportYnOnChange(obj) {
+            const supportAmt = modal_supportAmt.value
+            modal_supportAmt.value = (supportAmt === "") ? "0" : supportAmt
+
+            if (obj.value === "N") {
+                modal_supportAmt.value = "0"
+                modal_supportAmt.disabled = true
+                modal_supportExceedYn.disabled = true
+                modal_supportForwardYn.disabled = true
+                CssChange(".supportYnRelatedDisplay", "display", "none")
+            } else {
+                modal_supportAmt.disabled = false
+                modal_supportExceedYn.disabled = false
+                modal_supportForwardYn.disabled = false
+                CssChange(".supportYnRelatedDisplay", "display", "")
+            }
+        }
+
+        function limitYnOnChange(obj) {            
+            const limitAmt = modal_limitAmt.value
+            const limitDayAmt = modal_limitDayAmt.value
+            const limitDayCnt = modal_limitDayCnt.value
+
+            modal_limitAmt.value = (limitAmt === "") ? "0" : limitAmt
+            modal_limitDayAmt.value = (limitDayAmt === "") ? "0" : limitDayAmt
+            modal_limitDayCnt.value = (limitDayCnt === "") ? "0" : limitDayCnt
+
+            if (obj.value === "N") {
+                modal_limitAmt.value = "0"
+                modal_limitDayAmt.value = "0"
+                modal_limitDayCnt.value = "0"
+                modal_limitAmt.disabled = true
+                modal_limitDayAmt.disabled = true
+                modal_limitDayCnt.disabled = true
+                CssChange(".limitYnRelatedDisplay", "display", "none")
+            } else {
+                modal_limitAmt.disabled = false
+                modal_limitDayAmt.disabled = false
+                modal_limitDayCnt.disabled = false
+                CssChange(".limitYnRelatedDisplay", "display", "")
+            }
+        }
+
+        function modGrpData(check) {
+            alertModal.setModalContent("장부 수정", "잠시만 기다려주세요.")
+            if (check) {
+                const sendData = {
+                    useYn: modal_useYn.value,
+                    grpId: modal_grpId.textContent,
+                    grpNm: modal_grpNm.value,
+                    grpTy: modal_grpTy.value,
+                    suppotYn: modal_supportYn.value,
+                    suppotAmt: modal_supportAmt.value.replaceAll(",", ""),
+                    supportExceedYn: modal_supportExceedYn.value,
+                    supportForwardYn: modal_supportForwardYn.value,
+                    limitYn: modal_limitYn.value,
+                    limitAmt: modal_limitAmt.value.replaceAll(",", ""),
+                    limitDayAmt: modal_limitDayAmt.value.replaceAll(",", ""),
+                    limitDayCnt: modal_limitDayCnt.value.replaceAll(",", ""),
+                    intros: modal_intro.value
+                }
+                const opts = {
+                    method: 'PUT',
+                    body: JSON.stringify(sendData),
+                    headers: {"Content-Type": "application/json"}
+                };
+
+                if (modal_grpNm.value === "") {
+                    alertModal.setModalContent("장부 수정", "장부이름이 비어있습니다.")
+                } else {
+                    fetch('/api/ModBookData', opts).then(function (response) {
+                        return response.json();
+                    }).then(function (res) {
+                        alertModal.setModalContent("장부 수정", ((res.resultCode === "00") ? "수정 되었습니다." : "오류가 발생했습니다."))
+                        getBookMainList(getParams("pageNo"))
+                    })
+                }
+            }
+            modal_grpId.textContent = ""
+            modal_useYn.selectedIndex = 0
+            modal_grpNm.value = ""
+            modal_grpNm_label.textContent = "장부명"
+            modal_grpTy.selectedIndex = 3
+            modal_supportYn.selectedIndex = 0
+            modal_supportAmt.value = "0"
+            modal_supportExceedYn.selectedIndex = 0
+            modal_supportForwardYn.selectedIndex = 0
+            modal_limitYn.selectedIndex = 0
+            modal_limitAmt.value = "0"
+            modal_limitDayAmt.value = "0"
+            modal_limitDayCnt.value = "0"
+            modal_linkBox.hidden = true
+            modal_supportAmt.disabled = true
+            modal_supportExceedYn.disabled = true
+            modal_supportForwardYn.disabled = true
+            modal_limitAmt.disabled = true
+            modal_limitDayAmt.disabled = true
+            modal_limitDayCnt.disabled = true
+            modal_supportInvite.value = ""
+            modal_intro.value = ""
+        }
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">회원관리장부</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>회원장부관리</h5>
+        </div>
+        <!--검색바-->
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="searchSelect">
+                                <option value="grpNm">장부명</option>
+                                <option value="userNm">장부장</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="searchText"
+                                   onkeyup='searchEnterKey(getBookMainList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" id="searchButton"
+                                    onclick="getBookMainList(1)">조회
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                    </div>
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getBookMainList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                No.
+                            </th>
+                            <th class="text-left text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                장부장
+                            </th>
+                            <th class=" text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">장부명</th>
+                            <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-right text-xs text-secondary font-weight-bolder opacity-7">가맹점수</th>
+                            <th class="text-right text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                충전잔액
+                            </th>
+                            <th class="text-right text-xs text-secondary font-weight-bolder opacity-7">미정산잔액</th>
+                            <th class="text-right text-xs text-secondary font-weight-bolder opacity-7">비고</th>
+                        </tr>
+                        </thead>
+                        <tbody id="bookList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="modal fade" id="mod_grp_modal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">장부수정</h5>
+                    </div>
+                    <div class="modal-body">
+                        <div id="modal_grpId" hidden></div>
+                        <div class="p-2">
+                            <form>
+                                <div class="form-group mt-1">
+                                    <label for="modal_useYn" class="text-sm mb-0">사용여부</label>
+                                    <select class="cBorder" id="modal_useYn">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-0 mt-1">
+                                    <label for="modal_grpNm" class="text-sm mb-0" id="modal_grpNm_label">장부명
+                                        (장부ID)</label>
+                                    <input class="cBorder inputDisabled" id="modal_grpNm">
+                                </div>
+
+                                <div class="form-group mb-0 mt-1">
+                                    <label for="modal_grpTy" class="text-sm mb-0">장부 용도</label>
+                                    <select class="cBorder inputDisabled" id="modal_grpTy">
+                                        <option value="1">회사</option>
+                                        <option value="2">가족</option>
+                                        <option value="3">모임</option>
+                                        <option value="4">개인</option>
+                                        <option value="10">케이터링</option>
+                                        <option value="20">교육기관</option>
+                                        <option value="A">지원금차감</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-0 mt-4">
+                                    <label for="modal_supportYn" class="text-sm mb-0">지원금 사용여부</label>
+                                    <select class="cBorder" id="modal_supportYn" onchange="supportYnOnChange(this)">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-0 mt-1 supportYnRelatedDisplay">
+                                    <label for="modal_supportAmt" class="text-sm mb-0">지원금 기준금액</label>
+                                    <input class="cBorder text-right inputDisabled" id="modal_supportAmt">
+                                </div>
+
+                                <div class="form-group mb-0 mt-1 supportYnRelatedDisplay">
+                                    <label for="modal_supportExceedYn" class="text-sm mb-0">지원금 초과사용 가능여부</label>
+                                    <select class="cBorder" id="modal_supportExceedYn">
+                                        <option value="Y">가능</option>
+                                        <option value="N">불가능</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-0 mt-1 supportYnRelatedDisplay">
+                                    <label for="modal_supportForwardYn" class="text-sm mb-0">지원금 이월여부</label>
+                                    <select class="cBorder" id="modal_supportForwardYn">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-0 mt-4">
+                                    <label for="modal_limitYn" class="text-sm mb-0">사용제한설정</label>
+                                    <select class="cBorder" id="modal_limitYn" onchange="limitYnOnChange(this)">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group mb-0 mt-1 limitYnRelatedDisplay">
+                                    <label for="modal_limitAmt" class="text-sm mb-0">1회 사용금액 한도 (0 제한없음)</label>
+                                    <input class="cBorder text-right inputDisabled" id="modal_limitAmt">
+                                </div>
+
+                                <div class="form-group mb-0 mt-1 limitYnRelatedDisplay">
+                                    <label for="modal_limitDayAmt" class="text-sm mb-0">1일 사용금액 한도 (0 제한없음)</label>
+                                    <input class="cBorder text-right inputDisabled" id="modal_limitDayAmt">
+                                </div>
+
+                                <div class="form-group mb-0 mt-1 limitYnRelatedDisplay">
+                                    <label for="modal_limitDayCnt" class="text-sm mb-0">1일 사용횟수 한도 (0 제한없음)</label>
+                                    <input class="cBorder text-right inputDisabled" id="modal_limitDayCnt">
+                                </div>
+
+                                <div class="form-group mb-0 mt-4" id="modal_linkBox">
+                                    <label for="modal_supportInvite" class="text-sm mb-0">초대링크</label>
+                                    <input class="cBorder inputDisabled" id="modal_supportInvite" disabled>
+                                </div>
+
+                                <label class="text-sm mb-0 mt-4" for="modal_intro">장부설명</label>
+                                <textarea class="form-control inputDisabled" id="modal_intro"
+                                          style="resize: none;"></textarea>
+
+                            </form>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                                onclick="modGrpData(false)">취소
+                        </button>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                data-bs-toggle="modal" data-bs-target="#AlertModal" onclick="modGrpData(true)">수정사항 적용
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

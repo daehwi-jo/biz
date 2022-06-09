@@ -1,0 +1,412 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+
+            alarmStartDate.value = getDate(0, 1)
+            alarmEndDate.value = getDate(0, 0)
+            collectStartDate.value = getDate(0, 1)
+            collectEndDate.value = getDate(0, 0)
+            getInfoData()
+            getCollectList(1)
+            getAlarmList(1)
+        })
+
+        //상세정보
+        async function getInfoData() {
+            FunLoadingBarStart()
+            fetch("/api/admin/partnerMemberInfo" +
+                "?restId=" + getParams("restId")).then(function (response) {
+                return response.json()
+            }).then(function (json) {
+                const membershipCheck = (code) => {
+                    return "<span class=\"badge bg-gradient-" + ((code === "Y") ? "primary ps-4 pe-4" : "faded-secondary ps-5 pe-5") + " \" style=\"font-size: 0.8rem !important;\">" + ((code === "Y") ? "파트너멤버" : "해지") + "</span>"
+                }
+
+                const useCheck = (code) => {
+                    return "<span class=\"badge bg-gradient-faded-" + ((code === "Y") ? "success" : "secondary") + " mt-1\" style=\"font-size: 0.8rem !important;\">" + ((code === "Y") ? "사용중" : "사용안함") + "</span>"
+                }
+
+                const subscribeCheck = (code) => {
+                    return "<span class=\"badge bg-gradient-faded-" + ((code === "Y") ? "success" : "secondary") + " ps-5 pe-5 \" style=\"font-size: 0.8rem !important;\">" + ((code === "Y") ? "구독중" : "미구독") + "</span>"
+                }
+
+                const data = (json.resultCode === "00") ? json.resultData : null
+
+                detailTitle.innerText = "파트너멤버 관리 상세-[" + data.partnerMemberInfoDate.restNm + "]"
+
+                restNm.value = data.partnerMemberInfoDate.restNm + " (" + data.partnerMemberInfoDate.restId + ")"
+                useYn.innerHTML = useCheck(data.partnerMemberInfoDate.useYn)
+                bizNum.value = data.partnerMemberInfoDate.bizNum
+                ceoNm.value = data.partnerMemberInfoDate.ceoNm
+                tel.value = getHpNo(data.partnerMemberInfoDate.tel)
+                itemCd.value = data.partnerMemberInfoDate.itemCd
+
+                membershipYn.innerHTML = membershipCheck(data.partnerMemberInfoDate.partnerMemberYn)
+                subscribeYn.innerHTML = subscribeCheck(data.partnerMemberInfoDate.payYn)
+                membershipStartDate.value = data.partnerMemberInfoDate.startDate
+                membershipEndDate.value = data.partnerMemberInfoDate.endDate
+                nextPayDate.value = data.partnerMemberInfoDate.nextPayDate
+
+                FunLoadingBarFinish()
+            })
+        }
+
+        async function getCollectList(pageNo) {
+            const pageSize = collectPageSize.value
+
+            fetch("/api/admin/partnerMemberCollect" +
+                "?restId=" + getParams("restId") +
+                "&startDate=" + collectStartDate.value +
+                "&endDate=" + collectEndDate.value +
+                "&pageNo=" + pageNo +
+                "&pageSize=" + pageSize).then(function (response) {
+                return response.json()
+            }).then(function (json) {
+                const errCdSpan = (code) => {
+                    const errCdString = {
+                        "0000": "데이터 수집 완료"
+                        , "0001": "DB관련 에러"
+                        , "0002": "HTTP 통신에러"
+                        , "0003": "HTTP 응답값 에러"
+                        , "0004": "파싱에러"
+                        , "0005": "로그인 에러"
+                        , "0006": "그룹아이디 조회 에러"
+                        , "0007": "Data Format 에러"
+                        , "0008": "Data 없음"
+                        , "0009": "Data 있음"
+                        , "0010": "Data 동일"
+                        , "0100": "승인건수 에러"
+                        , "0101": "승인금액 에러"
+                        , "0102": "매입건수 에러"
+                        , "0103": "매입금액 에러"
+                        , "0104": "입금건수 에러"
+                        , "0105": "입금금액 에러"
+                        , "null": "데이터 없음"
+                    }
+                    const str = errCdString[code]
+                    return (code === "0000") ? "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>" : ((code === "null")
+                        ? "<span class=\"badge bg-dark mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>"
+                        : "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>")
+                }
+                const stsCd = (code) => {
+                    return (code === "1") ? "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">수집완료</span>" : ((code === "null")
+                        ? "<span class=\"badge bg-dark mt-1\" style=\"font-size: 0.8rem !important;\">데이터 없음</span>"
+                        : "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">오류</span>")
+                }
+                const data = (json.resultCode === "00") ? json.resultData : null
+                let html = ""
+                let blink = ""
+                if (!!data) {
+                    if (data.collectList.length !== 0) {
+                        for (const element of data.collectList) {
+                            html += "<tr>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.bsDt + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + stsCd(element.yStsCd) + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + errCdSpan(element.yErrCd) + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + stsCd(element.hStsCd) + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + errCdSpan(element.hErrCd) + "</td>" +
+                                "</tr>"
+                        }
+                        getPaginationName(data.totalCount, pageNo, pageSize, "getCollectList", "collectPageNav")
+                    } else {
+                        blink = "데이터 없음"
+                    }
+                }
+                document.getElementById("collectList").innerHTML = html
+                document.getElementById("collectBlink").innerText = blink
+
+            })
+        }
+
+        async function getAlarmList(pageNo) {
+            const pageSize = alarmPageSize.value
+            fetch("/api/admin/partnerMemberAlarm" +
+                "?restId=" + getParams("restId") +
+                "&startDate=" + alarmStartDate.value +
+                "&endDate=" + alarmEndDate.value +
+                "&pageNo=" + pageNo +
+                "&pageSize=" + pageSize
+            ).then(function (response) {
+                return response.json()
+            }).then(function (json) {
+                const templateCd = {
+                    "cash_003": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입3번 오류</span>"
+                    ,
+                    "cash_004": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입4번 오류</span>"
+                    ,
+                    "cash_101": "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">주간 분석성공</span>"
+                    ,
+                    "cash_201": "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">월간 분석성공</span>"
+                    ,
+                    "cash_013": "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">어제 분석성공</span>"
+                    ,
+                    "cash_014": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">어제분석 1차실패</span>"
+                    ,
+                    "cash_015": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">어제분석 2차실패</span>"
+                    ,
+                    "cash_016": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">어제분석 주말실패</span>"
+                    ,
+                    "cash_901": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입상태안내 미인증</span>"
+                    ,
+                    "cash_902": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입상태안내 인증</span>"
+                    ,
+                    "null": "<span class=\"badge bg-dark mt-1\" style=\"font-size: 0.8rem !important;\">데이터 없음</span>"
+                }
+
+                const data = (json.resultCode === "00") ? json.resultData : null
+                let html = ""
+                let blink = ""
+                if (!!data) {
+                    if (data.alarmList.length !== 0) {
+                        for (const element of data.alarmList) {
+                            html += "<tr>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.sendDate + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.userNm + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + getHpNo(element.hpNo) + "</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + templateCd[element.templateCd] + "</td>" +
+                                "</tr>"
+                        }
+                        getPaginationName(data.totalCount, pageNo, pageSize, "getAlarmList", "alarmPageNav")
+                    } else {
+                        blink = "데이터 없음"
+                    }
+                }
+                document.getElementById("alarmList").innerHTML = html
+                document.getElementById("alarmBlink").innerText = blink
+            })
+        }
+
+    </script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/partnerMember';">가맹점관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">멤버심관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4 mb-8">
+
+        <div class="h5" id="detailTitle">파트너멤버 관리 상세</div>
+        <div class="row">
+            <div class="col p-3">
+                <div class="row">
+                    <div class="card p-3 mb-3">
+                        <div class="h6">가맹점 정보</div>
+
+                        <div class="row  me-4 mb-2">
+                            <label class='col-3 text-sm mt-1 text-dark text-right' for="useYn">사용 여부</label>
+                            <div class='col' id="useYn"></div>
+                        </div>
+
+                        <div class="row  me-4 mb-2">
+                            <label class='col-3 text-sm mt-1 text-dark text-right' for="restNm">가맹점 이름 (ID)</label>
+                            <input class='col customBorder disableGray' id="restNm" disabled>
+                        </div>
+
+                        <div class="row  me-4 mb-2">
+                            <label class='col-3 text-sm mt-1 text-dark text-right' for="bizNum">사업자 번호</label>
+                            <input class='col customBorder disableGray' id="bizNum" disabled>
+                        </div>
+
+                        <div class="row  me-4 mb-2">
+                            <label class='col-3 text-sm mt-1 text-dark text-right' for="ceoNm">가입자 이름</label>
+                            <input class='col customBorder disableGray' id="ceoNm" disabled>
+                        </div>
+
+                        <div class="row  me-4 mb-2">
+                            <label class='col-3 text-sm mt-1 text-dark text-right' for="tel">휴대폰 번호</label>
+                            <input class='col customBorder disableGray' id="tel" disabled>
+                        </div>
+
+
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="card p-3">
+                        <div class="h6">파트너멤버 정보</div>
+
+                        <div class="row mb-2 p-3 pb-0">
+                            <div class="col">
+                                <div class="row">
+                                    <div class='col text-sm text-dark text-center text-bold'>멤버십 여부</div>
+                                    <div class='col' id="membershipYn">멤버십 여부</div>
+                                </div>
+                            </div>
+
+                            <div class="col">
+                                <div class="row ">
+                                    <div class='col text-sm text-dark text-center text-bold'>구독결제 여부</div>
+                                    <div class='col' id="subscribeYn">멤버십 여부</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="form-group col mb-0">
+                                <label class='mb-0' for="itemCd">상품구분</label>
+                                <input class='customBorder disableGray' id="itemCd" disabled>
+                            </div>
+
+                            <div class="form-group col mb-0">
+                                <label class='mb-0' for="nextPayDate">다음 결제일</label>
+                                <input class='customBorder disableGray' id="nextPayDate" disabled>
+                            </div>
+                        </div>
+
+
+                        <div class="row mb-2 pt-0">
+                            <div class="col ">
+                                <div class="row">
+                                    <div class="form-group col mb-0">
+                                        <label class="mb-0" for="membershipStartDate">시작일</label>
+                                        <input class='customBorder disableGray' id="membershipStartDate" disabled>
+                                    </div>
+                                    <div class="form-group col mb-0">
+                                        <label class="mb-0" for="membershipEndDate">종료일</label>
+                                        <input class='customBorder disableGray' id="membershipEndDate" disabled>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="col p-3">
+                <div class="row">
+                    <div class="card p-3 mb-3">
+                        <div class="h6">수집기 결과</div>
+                        <div class="row ps-3 pe-3">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="collectPageSize">검색개수</label>
+                                    <select class="form-control" type="date" id="collectPageSize"
+                                            onchange="getCollectList(1)">
+                                        <option value="5">5</option>
+                                        <option value="10">10</option>
+                                        <option value="15">15</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="collectStartDate">조회 시작일</label>
+                                    <input class="form-control" type="date" id="collectStartDate"
+                                           onchange="getCollectList(1)"/>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="collectEndDate">조회 종료일</label>
+                                    <input class="form-control" type="date" id="collectEndDate"
+                                           onchange="getCollectList(1)"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive p-0" style="overflow-x: hidden">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">수집 기준일
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">여신협회 상태
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">여신협회 결과
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">홈택스 상태
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">홈택스 결과
+                                    </th>
+                                </tr>
+                                </thead>
+                                <tbody id="collectList"></tbody>
+                            </table>
+                            <div id="collectBlink" class="text-center text-dark text-bold"></div>
+                        </div>
+                        <nav id="collectPageNav"></nav>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="card p-3">
+                        <div class="h6">알림톡 결과</div>
+                        <div class="row ps-3 pe-3">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="alarmPageSize">검색개수</label>
+                                    <select class="form-control" type="date" id="alarmPageSize"
+                                            onchange="getAlarmList(1)">
+                                        <option value="5" selected>5</option>
+                                        <option value="10">10</option>
+                                        <option value="15">15</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="alarmStartDate">조회 시작일</label>
+                                    <input class="form-control" type="date" id="alarmStartDate"
+                                           onchange="getAlarmList(1)"/>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="alarmEndDate">조회 종료일</label>
+                                    <input class="form-control" type="date" id="alarmEndDate"
+                                           onchange="getAlarmList(1)"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive p-0" style="overflow-x: hidden">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">
+                                        보낸날짜/시간
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">수신자</th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">수신번호
+                                    </th>
+                                    <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">알림톡 결과</th>
+                                </tr>
+                                </thead>
+                                <tbody id="alarmList">
+
+                                </tbody>
+                            </table>
+                            <div id="alarmBlink" class="text-center text-dark text-bold"></div>
+                        </div>
+                        <nav id="alarmPageNav"></nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

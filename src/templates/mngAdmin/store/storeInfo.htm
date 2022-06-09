@@ -1,0 +1,2498 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript" src="/public/js/commons/csList.js"></script>
+    <script type="text/javascript">
+
+        const dragData = new FormData()
+
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+
+            document.getElementById("accStDay").value = getDate(0, 0)
+            document.getElementById("pstartDate").value = getDate(0, 1)
+            document.getElementById("pendDate").value = getDate(0, 0)
+
+            getParamsData(location.href)
+            fileDragNDrop("modal_mod_itemImg", "modal_mod_itemImgBox", "modFileName")
+            fileDragNDrop("modal_add_itemImg", "modal_add_itemImgBox", "addFileName")
+            tap_info.click()
+            clickEventListener()
+        })
+
+        //상세정보
+        async function getStoreInfoData() {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi("/api/StoreInfoCs?restId=" + getParams("restId") + "&searchKeyword=")
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+
+            if (!!data) {
+                const bankList = data.bankList
+                const etc = data.storeEtc[0]
+                const info = data.storeInfo[0]
+
+                for (const element of bankList) {
+                    const option = document.createElement("option")
+                    option.value = element.codeId
+                    option.textContent = element.codeNm
+                    accountBk.appendChild(option)
+                }
+
+                modal_mod_prod.hidden = (info.storeType === 'N')
+                modal_mod_img.hidden = (info.storeType === 'N')
+                modal_add_prod.hidden = (info.storeType === 'N')
+                modal_add_img.hidden = (info.storeType === 'N')
+
+                storeTitle.textContent = "가맹점관리 상세 - ["+info.restNm+"]"
+
+                getSelectedIndexV("useYn", info.useYn)
+                document.getElementById("restId").textContent = "가맹점명 (" + getParams("restId") + ")"
+                document.getElementById("ceoNm").textContent = (!info.ceoId) ? "대표자" : "대표자 (" + info.ceoId + ")"
+                restNm.value = info.restNm
+                bizNum.value = info.busid
+                tel.value = getHpNo(info.tel)
+                email.value = info.email
+                ceo.value = info.ceoNm
+                intro.value = info.intro
+                joinDate.value = info.joinDate
+                document.getElementById("open").value = info.openWeek
+                document.getElementById("restImg").src = info.restImg
+
+                if (!!etc) {
+                    const memo = document.getElementById("memo")
+                    const notice = document.getElementById("notice")
+                    memo.value = etc.memo
+                    notice.value = etc.notice
+                    CssChange(".restInfoDisplay", "display", ((info.storeType === 'N') ? "none" : ""))
+                    CssChange(".restInfoDisplay", "display", ((info.storeType === 'N') ? "none" : ""))
+                    resize(memo)
+                    resize(notice)
+                }
+
+                if (!!info.bankNm) {
+                    getSelectedIndexT("accountBk", ((!info.bankNm) ? "" : info.bankNm))
+                    oldAccountBk.textContent = info.bankNm
+                    oldAccountNm.textContent = info.accountNm
+                    oldAccountNo.textContent = info.accountNo
+                    accountNo.value = info.accountNo
+                    accountNm.value = info.accountNm
+                }
+            }
+            FunLoadingBarFinish()
+        }
+
+        function resize(obj) {
+            obj.style.height = '1px';
+            obj.style.height = (12 + obj.scrollHeight) + 'px';
+        }
+
+        function uploadImg() {
+
+            let input = document.querySelector('input[type="file"]')
+
+            let data = new FormData()
+            let filetype = "";
+
+            for (const file of input.files) {
+                data.append('files', file, file.name)
+                filetype = getFileExtendName(file.name)
+            }
+
+            if (filetype == "") {
+                alert("파일을 선택해주세요.")
+                return;
+            }
+
+            if (filetype == '.jpg' || filetype == '.gif' || filetype == '.png' || filetype == '.jpeg') {
+
+            } else {
+                alert('jpg,png,gif,jpeg 이미지 파일만 업로드가 가능합니다.', filetype);
+                return;
+            }
+
+            let restId = getParams("restId")
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: data};
+            fetch('/api/SetStoreImg?restId=' + restId + "&extend=" + filetype, opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                if (res.resultCode == "00") {
+                    location.reload()
+                } else {
+                    alert(res.resultMsg);
+                }
+
+            });
+            FunLoadingBarFinish();
+
+        }
+
+        function getFileExtendName(filename) {
+
+            let _fileLen = filename.length;
+            let _lastDot = filename.lastIndexOf('.');
+            let _fileExt = filename.substring(_lastDot, _fileLen).toLowerCase();
+
+            return _fileExt;
+        }
+
+        //CS목록
+        async function getStoreCsData() {
+            FunLoadingBarStart()
+
+            const obj = await RequestGETApi('/api/GetBizCsList?searchKeyId=' + getParams("restId") + '&searchType=S')
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            if (addCsList("S", getParams("restId"), "/api/GetBizCsList")) {
+                setCsList(data)
+            }
+
+            FunLoadingBarFinish()
+        }
+
+        //연결장부
+        async function getStoreLinkBookData(pageNo) {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi("/api/GetLinkBookList?restId=" + getParams("restId") + "&searchKeyword=" + search_value.textContent + "&pageSize=10&pageNo=" + pageNo)
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            let htmlString = ""
+            let blink = ""
+            if (!data.linkBookList) {
+                blink = "<div class='row text-center'><div class='h6 p-5'>검색된 연결상태의 장부가 없습니다.</div></div>"
+            } else {
+                let number = 1 + getContentNumber(pageNo)
+                const cases = {
+                    0: "<span class='badge badge-sm bg-gradient-faded-info' style='margin: 0;'>연결요청됨</span>",
+                    1: "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>연결</span>",
+                    2: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                    3: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                    4: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                    5: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                }
+                for (const element of data.linkBookList) {
+                    htmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                    htmlString += "<td><p class=\"text-s font-weight-bold mb-0\" style=\"text-decoration: underline; cursor: pointer;\"" +
+                        "data-bs-target='#modal_book_connect' data-bs-toggle='modal' onclick='getStoreLinkBookInfo(\"" + element.grpId + "\",\"" + getParams("restId") + "\")'>" + element.grpNm + "</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.userCnt + " 명" + "</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + cases[element.reqStat] + "</p></td>"
+                    htmlString += "<td><p class=\"text-right text-s font-weight-bold mb-0\">" + numberWithCommas(element.prepaidAmt) + " 원</p></td>"
+                    htmlString += "<td><p class=\"text-right text-s font-weight-bold mb-0\">" + numberWithCommas(element.orderAmt) + " 원 "
+                    htmlString += " <button type=\"button\" class=\"btn btn-outline-primary btn-sm mb-0\" data-bs-toggle='modal' data-bs-target='#modal_unpaid_list' onclick='openPaidPopup(\"" + element.grpId + "\",1)'>정산</button></p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.authDate + "</p></td></tr>"
+                    number++
+                }
+                getPaginationName(data.totalCnt, pageNo, 10, "getStoreLinkBookData", "pageNavBook")
+            }
+            document.getElementById("linkList").innerHTML = htmlString
+            document.getElementById("linkListBlink").innerHTML = blink
+            FunLoadingBarFinish()
+
+        }
+
+        async function getStoreLinkBookSearch(pageNo) {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi("/api/SearchLinkStoreBook?restId=" + getParams("restId") + "&searchKeyword=" + modal_search_keyword.value + "&pageSize=10&pageNo=" + pageNo)
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            let htmlString = ""
+            let blink = ""
+
+            if (!data) {
+                blink = "<div class='row text-center'><div class='h6 p-5'>검색된 장부가 없습니다.</div></div>"
+            } else {
+                let number = 1 + getContentNumber(pageNo)
+                const cases = {
+                    0: "<span class='badge badge-sm bg-gradient-faded-info' style='margin: 0;'>연결요청됨</span>",
+                    1: "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>연결</span>",
+                    2: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                    3: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                    4: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                    5: "<span class='badge badge-sm bg-gradient-faded-danger' style='margin: 0;'>미연결</span>",
+                }
+
+                for (const element of data.linkBookList) {
+                    htmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                    htmlString += "<td><p class=\"text-s font-weight-bold mb-0\" style=\"text-decoration: underline; cursor: pointer;\"" +
+                        "data-bs-target='#modal_book_connect' data-bs-toggle='modal' data-bs-dismiss='modal' " +
+                        "onclick='getStoreLinkBookInfo(\"" + element.grpId + "\",\"" + getParams("restId") + "\")'>" + element.grpNm + "</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.grpMaster + "</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.userCnt + " 명" + "</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + cases[element.reqStat] + "</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + numberWithCommas(element.prepaidAmt) + " 원</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.authDate + "</p></td></tr>"
+                    number++
+                }
+                getPagination(data.totalCnt, pageNo, 10, "getStoreLinkBookSearch")
+            }
+            document.getElementById("modalLinkList").innerHTML = htmlString
+            document.getElementById("modalLinkListBlink").innerHTML = blink
+            FunLoadingBarFinish()
+        }
+
+        async function getStoreLinkBookInfo(grpId, restId) {
+            const obj = await RequestGETApi("/api/GetLinkBookInfo?restId=" + restId + "&grpId=" + grpId)
+            const data = (obj.resultCode === "00") ? obj.resultData[0] : null
+            const casesText = {
+                0: "사용자",
+                1: "가맹점",
+                2: "관리자",
+                3: "없음"
+            }
+
+            if (!!data) {
+                document.getElementById("grpId").value = grpId
+                modal_book_nm.value = data.grpNm
+                modal_book_users.value = data.userCnt + "명"
+                modal_book_amt.value = numberWithCommas(data.prepaidAmt) + "원"
+                modal_book_join.value = data.authDate
+                modal_book_mod_date.value = data.modDate
+                getSelectedIndexV("modal_book_link_stat", ((data.reqStat === "1") ? data.reqStat : "3"))
+                getSelectedIndexV("modal_book_payTy", data.payTy)
+                modal_book_joinTy.value = ((data.linkTy === "G") ? "일반" : "식권장부")
+                linkTy.textContent = data.linkTy
+                modal_book_req.value = casesText[data.reqTy]
+
+                if (data.rejCom === "") {
+                    link_cancel_comment.hidden = true
+                } else {
+                    link_cancel_comment.hidden = false
+                    rej_comment.value = data.rejCom
+                }
+            }
+            modal_search_keyword.value = ""
+            document.getElementById("modalLinkList").innerHTML = ""
+            document.getElementById("modalLinkListBlink").innerHTML = "<div class='row text-center'><div class='h6 p-5'>장부를 검색해주세요.</div></div>"
+            pageNav.innerHTML = ""
+        }
+
+        function onChangeLink(obj) {
+            link_cancel_comment.hidden = !(getSelectedValue(obj.id) === "3" && modal_book_amt.value.replaceAll("원", "").replaceAll(",", "") !== "0");
+        }
+
+        //메뉴
+        async function getStoreCategoryData() {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi('/api/GetCategoryMenuList?restId=' + getParams("restId"))
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            let html = ""
+            let blink = ""
+
+            if (!!data) {
+                let number = 1
+                if (!data.categoryData) {
+                    blink = "카테고리가 없습니다. 항목을 추가해주세요."
+                } else {
+                    for (const category of data.categoryData) {
+                        html += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                        html += "<td><p class=\"text-s font-weight-bold mb-0\" " +
+                            "                   style='text-decoration: underline;cursor: pointer;' " +
+                            "                   onclick='getStoreMenuData(this,\"" + category.codeId + "\")'>" + category.codeNm + "</p></td>"
+                        html += "<td><p class=\"text-s font-weight-bold mb-0 ps-3\">" + ((category.useYn === "N")
+                            ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                            : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>") + "</p></td>"
+
+                        html += "<td>" +
+                            "<div class=\"text-center\">" +
+                            "  <button class=\"btn btn-sm mb-0 bg-gradient-secondary\" id=\"menu_visible" + number + "\"" +
+                            "   data-bs-toggle='modal' data-bs-target='#modal_mod_category' " +
+                            "onclick='onClickModCategory(\"" + category.codeId + "\",\"" + category.codeNm + "\",\"" + category.useYn + "\")'" +
+                            " " + ((getParams("codeId") === category.codeId) ? "checked=\"\"" : "") + ">수정</button>" +
+                            "  <label class=\"custom-control-label mt-1\" for=\"menu_visible" + number + "\"></label>" +
+                            "</div>" +
+                            "</td></tr>"
+                        number++
+                    }
+                    document.getElementById("categoryLength").textContent = data.categoryData.length
+                }
+                document.getElementById("categoryList").innerHTML = html
+                document.getElementById("categoryListBlink").innerHTML = blink
+            }
+            FunLoadingBarFinish()
+        }
+
+        async function getStoreMenuData(obj, codeId) {
+            const length = categoryLength.textContent
+            const id = obj.id
+            let menuHtmlString = ""
+            let blink = ""
+
+            menu_list_view.hidden = false
+
+            //TODO 조건문 수정
+            if (id === "" || id === "btn_open_all_menu" || id === "menu_use_visible" || id === "btn_commit_add_modal_menu" || id === "btn_commit_mod_menu") {
+                if (id !== "menu_use_visible" && id !== "btn_commit_add_modal_menu" && id !== "btn_commit_mod_menu") {
+                    for (let i = 1; i <= length; i++) {
+                        document.getElementById("menu_visible" + i).checked = (id === "menu_visible" + i)
+                    }
+                    setParams("codeId", codeId)
+                }
+
+                const response = await RequestGETApi("/api/GetMenuList?restId=" + getParams("restId") + "&codeId=" + getParams("codeId") + "&useVisible=" + ((menu_use_visible.checked) ? "Y" : "N"))
+                const data = (response.resultCode === "00") ? response.resultData : null
+                if (!!data) {
+                    let number = 1
+                    if (data.menuData.length === 0) {
+                        menuHtmlString = ""
+                        blink = "좌측 항목에서 다른 카테고리를 선택하시거나,\n메뉴를 추가해주세요."
+                    } else {
+                        for (const menu of data.menuData) {
+
+                            menuHtmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                            menuHtmlString += "<td><p class=\"text-s font-weight-bold mb-0\" " +
+                                "data-bs-toggle='modal' data-bs-target='#modal_mod_menu' " +
+                                "style='text-decoration: underline;cursor: pointer;' " +
+                                "onclick='onClickModMenu(\"" + menu.itemNo + "\",\"" + menu.itemNm + "\",\"" + menu.itemPrice + "\",\"" + menu.codeId + "\",\""
+                                + menu.useYn + "\",\"" + menu.prodId + "\",\"" + menu.itemImg + "\",\"" + menu.bestYn + "\",\"" + menu.salesEndDate + "\")'>" + menu.itemNm + ((menu.prodId !== "") ? "(" + menu.prodId + ")" : "") + "</p></td>"
+                            menuHtmlString += "<td><p class=\"text-s font-weight-bold mb-0 ps-3\">" + menu.codeNm + "</p></td>"
+                            menuHtmlString += "<td><p class=\"text-s font-weight-bold mb-0 ps-3\">" + ((menu.useYn === "N")
+                                ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                                : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>") + "</p></td>"
+                            menuHtmlString += "<td><p class=\"text-s font-weight-bold mb-0 ps-3\">" + ((menu.bestYn === "N")
+                                ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>일반메뉴</span>"
+                                : "<span class='badge badge-sm bg-gradient-faded-warning' style='margin: 0;'>추천메뉴</span>") + "</p></td>"
+                            menuHtmlString += "<td><p class=\"text-right text-s font-weight-bold mb-0\">" + numberWithCommas(menu.itemPrice) + " 원</p></td>"
+                            menuHtmlString += "<td><p class=\"text-right text-s font-weight-bold mb-0\"></p></td></tr>"
+                            number++
+                        }
+                    }
+                }
+            } else {
+                menu_list_view.hidden = true
+                setParams("codeId", "")
+                blink = "좌측 항목에서 다른 카테고리를 선택해주세요."
+            }
+            document.getElementById("menuList").innerHTML = menuHtmlString
+            document.getElementById("menuListBlink").innerText = blink
+        }
+
+        async function setCategorySelect(obj) {
+            const response = await RequestGETApi("/api/GetCategoryList?restId=" + getParams("restId"))
+            const data = (response.resultCode === "00") ? response.resultData : null
+
+            let selectHtml = "<option value='0' selected disabled>선택해주세요</option>"
+
+            for (const element of data) {
+                selectHtml += "<option value='" + element.codeId + "'>" + element.codeNm + "</option>"
+            }
+            obj.innerHTML = selectHtml
+
+            getSelectedIndexV(obj.id, getParams("codeId"))
+        }
+
+        function onClickModMenu(menuId, menuNm, menuPrice, codeId, useYn, prodId, itemImg, bestYn, salesEndDate) {
+            setParams("codeId", codeId)
+            setParams("menuId", menuId)
+            setCategorySelect(modal_mod_category_select)
+            modal_mod_menuId.textContent = menuId
+            modal_mod_codeId.textContent = codeId
+            modal_mod_menuNm.value = menuNm
+            modal_mod_menu_price.value = numberWithCommas(menuPrice)
+            getSelectedIndexV("modal_mod_menu_useYn", useYn)
+            getSelectedIndexV("modal_mod_menu_bestYn", bestYn)
+            modal_mod_prod_cd.value = prodId
+            modal_mod_prod_date.value = salesEndDate
+            modal_mod_itemImg.src = itemImg
+
+            modal_mod_filePath.value = itemImg
+
+        }
+
+        function onClickModCategory(categoryId, categoryNm, useYn) {
+            modal_mod_categoryId.textContent = categoryId
+            modal_mod_categoryNm.value = categoryNm
+            getSelectedIndexV("modal_category_useYn", useYn)
+        }
+
+        //고객편의시설
+        async function getStoreFacilityData() {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi('/api/GetFacility?restId=' + getParams("restId"))
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            let html = ""
+
+            console.log(data)
+            if (!!data) {
+                const length = data.length
+                btn_mod_facility.hidden = (length === 0)
+                btn_add_facility.hidden = (length > 7)
+                FacilityLength.textContent = length
+                if (length === 0) {
+                    html = "<div class='row text-center'><div class='h6 p-5'> 고객안내 항목이 없습니다. 항목을 추가해주세요.</div></div>"
+                } else {
+                    for (const index in data) {
+                        html += "<div class='row mt-4'>" +
+                            "<div id='Facility" + index + "Id" + "' hidden>" + data[index].SERVICE_ID + "</div>" +
+                            "<div class='col-8'>" +
+                            "<div class='row'>" +
+                            "       <div class='col-2 text-right h6'>서비스 이름 : </div>" +
+                            "       <input class='col customBorder' id='Facility" + index + "Nm' value='" + data[index].SERVICE_NM + "' maxlength='25'>" +
+                            "       <div class='col-8'></div></div>" +
+                            "<div class='row'>" +
+                            "<div class='col-2 text-right h6'>상세정보 : </div>" +
+                            "       <textarea class='col customBorder' id='Facility" + index + "' onkeyup='facilityChange(this," + index + ")' maxlength='250' style='height: 70px; resize: none'>" + data[index].SERVICE_INFO + "</textarea></div>" +
+                            "</div>" +
+                            "<div class='col-2 ps-5'>" +
+                            "<div class=\"form-check form-switch mt-3 pt-3\" id='" + "aaaaa" + index + "'>" +
+                            "   <label class=\"form-check-label\" for=\"Facility" + index + "UseYn\" id=\"Facility" + index + "UseYnText\">사용여부</label>" +
+                            "   <input class=\"form-check-input\" type=\"checkbox\" id=\"Facility" + index + "UseYn\"" + ((data[index].USE_YN == 1) ? " checked=\"\"" : " ") + "/>" +
+                            "</div>" +
+                            "</div>" +
+                            "<div class='col-1'>" +
+                            "<div class=\"form-check mt-3 pt-3\">" +
+                            "  <input class=\"form-check-input \" type=\"checkbox\" value=\"\" onclick='facilityCheckBox(this)' id=\"Facility" + index + "PopUp\"" + ((data[index].NOTICE_YN === "1") ? " checked=\"\" " : " ") +
+                            (checkUrlForm(data[index].SERVICE_INFO) ? "disabled" : "") + ">" +
+                            "  <label class=\"custom-control-label mt-1 \" for=\"Facility" + index + "PopUp\">팝업여부</label>" +
+                            "</div>" +
+                            "</div>" +
+                            "</div>"
+
+
+                    }
+                }
+                FacilityView.innerHTML = html
+                CssChange(".disabledSwitch", "pointer-events", "")
+            }
+            FunLoadingBarFinish()
+        }
+
+        async function getChargeData() {
+            const obj = await RequestGETApi("/api/ChargeList?restId=" + getParams("restId"))
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            let html = ""
+            let blink = ""
+
+            charge_use_yn.selectedIndex = (data.useCheck === "Y") ? 0 : 1
+
+            const disabled = (data.useCheck === "N") ? "disabled" : ""
+            btn_add_item.hidden = (data.chargeList.length > 9)
+
+            if (!!data && data.chargeList.length !== 0) {
+                for (const element of data.chargeList) {
+                    html += "<tr>" +
+                        "<td hidden><input id='seqNumber' value='" + element.seqNo + "'/></td>" +
+                        "<td><input class=\"cBorder text-sm text-right font-weight-bolder text-uppercase disableGray\" value=\"" + numberWithCommas(element.amt) + "\"" +
+                        "           placeholder=\"결제금액\" type=\"text\" maxlength=\"12\"" +
+                        "           oninput=\"numberMaxLength(this)\"" +
+                        "           onkeyup=\"getTotalChargeAmtTable(this)\" " + disabled + "/></td>" +
+                        "<td><input class=\"cBorder text-sm text-right font-weight-bolder text-uppercase disableGray\" value=\"" + numberWithCommas(element.addAmt + "") + "\"" +
+                        "           placeholder=\"보너스금액\" type=\"text\" maxlength=\"12\"" +
+                        "           oninput=\"numberMaxLength(this)\"" +
+                        "           onkeyup=\"getTotalChargeAmtTable(this)\" " + disabled + "/></td>" +
+                        "<td><input class=\"cBorder text-sm text-right font-weight-bolder text-uppercase disableGray\" value=\"" + numberWithCommas((element.amt * 1 + element.addAmt * 1)) + "\"" +
+                        "           placeholder=\"합산 금액\" type=\"text\" maxlength=\"12\"" +
+                        "           oninput=\"numberMaxLength(this)\" disabled/></td>" +
+                        "<td><select class=\"cBorder text-sm font-weight-bolder text-uppercase disableGray\" " + disabled + ">" +
+                        "    <option value=\"Y\" " + ((element.useYn === "Y") ? "selected" : "") + ">사용</option>" +
+                        "    <option value=\"N\" " + ((element.useYn === "N") ? "selected" : "") + ">미사용</option>" +
+                        "</select></td>" +
+                        "</tr>"
+                }
+                blink = ""
+            } else {
+                blink = "충전 항목이 없습니다."
+            }
+
+            chargeTable.innerHTML = html
+            chargeBlink.textContent = blink
+        }
+
+        function onCheckedUseSelect(obj) {
+            const check = obj.value === "N"
+            const table = document.getElementById("chargeTable").getElementsByTagName("tr")
+
+            for (const rows of table) {
+                let row = rows.getElementsByTagName("td")
+                row[0].firstChild.disabled = check
+                row[1].firstChild.disabled = check
+                row[2].firstChild.disabled = check
+                row[4].firstChild.disabled = check
+            }
+        }
+
+        //이벤트
+        async function tap_event(obj) {
+            const tapArr = [tap_info, tap_cs, tap_book, tap_charge, tap_menu, tap_facility]
+            const viewArr = [info_view, cs_view, book_view, charge_view, menu_view, facility_view]
+            for (const i in viewArr) {
+                viewArr[i].hidden = (obj.id !== tapArr[i].id)
+            }
+
+            for (const element of tapArr) {
+                if (obj.id === element.id) {
+                    element.classList.remove("bg-gradient-white")
+                    element.classList.add("bg-gradient-secondary", "disabledSwitch")
+                    switch (element.id) {
+                        case "tap_info":
+                            await getStoreInfoData()
+                            break
+                        case "tap_cs":
+                            await getStoreCsData()
+                            break
+                        case "tap_book":
+                            await getStoreLinkBookData(1)
+                            getPaidOkList()
+                            break
+                        case "tap_menu":
+                            await getStoreCategoryData()
+                            break
+                        case "tap_facility":
+                            await getStoreFacilityData()
+                            break
+                        case "tap_charge":
+                            await getChargeData()
+                            break
+                    }
+                    CssChange(".displayVisible", "display", "none")
+                    CssChange(".disabledSwitch", "pointer-events", "none")
+                } else {
+                    element.classList.remove("bg-gradient-secondary", "disabledSwitch")
+                    element.classList.add("bg-gradient-white")
+                }
+            }
+        }
+
+        function clickEventListener() {
+            window.document.addEventListener('click', async function (event) {
+                    let obj = null
+                    let arr = []
+                    switch (event.target.id) {
+                        case "btn_check_account":
+                            RequestGETApi("/api/CheckAccount?bankCode=" + getSelectedValue("accountBk") + "&accountNo=" + accountNo.value).then(function (data) {
+                                if (data.resultCode === "00") {
+                                    account_msg.textContent = data.msg
+                                    accountNm.value = data.account_name
+                                    oldAccountNm.textContent = data.account_name
+                                    oldAccountBk.textContent = getSelectedText("accountBk")
+                                    oldAccountNo.textContent = accountNo.value
+                                    accountBk.disabled = true
+                                    accountNo.disabled = true
+                                } else {
+                                    account_msg.textContent = data.resultMsg
+                                }
+                            })
+                            break
+                        case "btn_account_cancel":
+                            account_msg.textContent = "잠시만 기다려주세요."
+                            break
+                        case "btn_account_commit":
+                            account_msg.textContent = "잠시만 기다려주세요."
+                            break
+                        case "linkBookSearch":
+                            search_value.textContent = search_keyword.value
+                            await getStoreLinkBookData(1)
+                            break
+                        case "btn_commit_mod_modal_book":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            let amt = modal_book_amt.value.replaceAll("원", "").replaceAll(",", "") //있으면 미통과
+
+                            if (amt === "0" || (getSelectedValue("modal_book_link_stat") === "1" || rej_comment.value !== "")) {
+                                RequestPOSTApi("/api/ModBookLink", {
+                                    agrmId: getParams("restId") + document.getElementById("grpId").value,
+                                    grpId: document.getElementById("grpId").value,
+                                    restId: getParams("restId"),
+                                    reqTy: "2",//연결 요청자
+                                    payTy: getSelectedValue("modal_book_payTy"), // 선불,후불
+                                    linkTy: linkTy.textContent,//일반,식권
+                                    rejCom: rej_comment.value, //연결해제 사유
+                                    authCode: getSelectedValue("modal_book_link_stat"), //연결 상태
+                                }).then(function (data) {
+                                    alertModal.setModalContent("알림", ((data.resultCode === "00") ? "장부 연결 정보가 수정되었습니다." : "오류가 발생했습니다."))
+                                    getStoreLinkBookData(1)
+                                })
+                            } else {
+                                alertModal.setModalContent("알림", "잔액/충전금 이 남아있습니다, 사유를 적어주세요.")
+                            }
+                            break
+                        case "btn_cancel_mod_modal_book":
+                            await getStoreLinkBookData(1)
+                            break
+                        case "btn_cancel_search_modal":
+                            modal_search_keyword.value = ""
+                            document.getElementById("modalLinkList").innerHTML = ""
+                            document.getElementById("modalLinkListBlink").innerHTML = "<div class='row text-center'><div class='h6 p-5'>검색된 장부가 없습니다.</div></div>"
+                            pageNav.innerHTML = ""
+                            break
+                        case "btn_open_add_menu_modal":
+                            setCategorySelect(select_add_modal_category_list)
+                            break
+                        case "btn_commit_mod_category":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            RequestPUTApi("/api/ModCategory", {
+                                restId: getParams("restId"),
+                                codeNm: modal_mod_categoryNm.value,
+                                useYn: getSelectedValue("modal_category_useYn"),
+                                codeId: modal_mod_categoryId.textContent,
+                            }).then(function (data) {
+                                modal_mod_categoryNm.value = ""
+                                modal_category_useYn.selectedIndex = 0
+                                alertModal.setModalContent("알림", ((data.resultCode === "00") ? "수정되었습니다." : "오류가 발생했습니다."))
+                                getStoreCategoryData()
+                            })
+                            break
+                        case "btn_commit_add_modal_category":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            if (modal_add_categoryNm.value === "") {
+                                msg_add_category.textContent = "카테고리 이름을 입력해주세요."
+                            } else {
+                                RequestPOSTApi("/api/AddCategory", {
+                                    restId: getParams("restId"),
+                                    codeNm: modal_add_categoryNm.value,
+                                    useYn: getSelectedValue("modal_category_useYn")
+                                }).then(function (data) {
+                                    modal_add_categoryNm.value = ""
+                                    modal_category_useYn.selectedIndex = 0
+                                    msg_add_category.textContent = (data.resultCode === "00") ? "카테고리가 추가 되었습니다." : "오류가 발생했습니다."
+                                    getStoreCategoryData()
+                                })
+                            }
+                            msg_add_container2.hidden = false
+
+                            setTimeout(() => {
+                                msg_add_container2.hidden = true
+                            }, 1500)
+                            break
+                        case "btn_open_all_menu" :
+                            await getStoreMenuData(event.target, "all")
+                            break
+                        case "btn_mod_facility":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            for (let i = 0; i < FacilityLength.textContent; i++) {
+                                let objElement = {
+                                    serviceId: document.getElementById("Facility" + i + "Id").textContent,
+                                    serviceNm: document.getElementById("Facility" + i + "Nm").value,
+                                    serviceInfo: document.getElementById("Facility" + i).value,
+                                    useYn: (document.getElementById("Facility" + i + "UseYn").checked) ? "1" : "0",
+                                    noticeYn: (document.getElementById("Facility" + i + "PopUp").checked) ? "1" : "0"
+                                }
+                                arr.push(objElement)
+                            }
+                            RequestPUTApi("/api/UpdateFacility", {
+                                restId: getParams("restId"),
+                                facilityList: arr
+                            }).then(function (data) {
+                                alertModal.setModalContent("알림", ((data.resultCode === "00") ? "고객안내 정보가 수정되었습니다." : "오류가 발생했습니다."))
+                                getStoreFacilityData()
+                            })
+                            break
+                        case "btn_add_facility_cancel":
+                            modal_add_facility_nm.value = ""
+                            modal_add_facility_detail.value = ""
+                            modal_add_facility_useYn.selectedIndex = 0
+                            break
+                        case "btn_add_facility_commit":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            RequestPOSTApi("/api/AddFacility", {
+                                restId: getParams("restId")
+                                , serviceNm: modal_add_facility_nm.value
+                                , serviceInfo: modal_add_facility_detail.value
+                                , useYn: getSelectedValue("modal_add_facility_useYn")
+                                , noticeYn: 0
+                            }).then(function (data) {
+                                modal_add_facility_nm.value = ""
+                                modal_add_facility_detail.value = ""
+                                modal_add_facility_useYn.selectedIndex = 0
+                                alertModal.setModalContent("알림", ((data.resultCode === "00") ? "고객안내 정보가 추가되었습니다." : "오류가 발생했습니다."))
+                                getStoreFacilityData()
+                            })
+                            break
+                        case "btn_charge_cancel":
+                            modal_add_charge_all.value = ""
+                            modal_add_charge_price.value = ""
+                            modal_add_charge_bonus.value = ""
+                            break
+                        case "btn_charge_commit":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            if (modal_add_charge_price.value === "") {
+                                alertModal.setModalContent("알림", "결제 금액을 입력해주세요.")
+                                break
+                            } else if (modal_add_charge_bonus.value === "") {
+                                alertModal.setModalContent("알림", "보너스 금액을 입력해주세요.")
+                                break
+                            }
+
+                            obj = await RequestPOSTApi("/api/AddChargeItem", {
+                                restId: getParams("restId")
+                                , amt: modal_add_charge_price.value.replaceAll(",", "")
+                                , addAmt: modal_add_charge_bonus.value.replaceAll(",", "")
+                                , useYn: getSelectedValue("modal_add_charge_useYn")
+                            })
+
+                            modal_add_charge_all.value = ""
+                            modal_add_charge_price.value = ""
+                            modal_add_charge_bonus.value = ""
+                            modal_add_charge_useYn.selectedIndex = 0
+                            alertModal.setModalContent("알림", ((obj.resultCode === "00") ? "추가 되었습니다." : "다시 시도해주세요."))
+                            await getChargeData()
+
+                            break
+                        case "btn_charge_modify":
+                            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+                            const table = document.getElementById("chargeTable").getElementsByTagName("tr")
+                            for (const rows of table) {
+                                const row = rows.getElementsByTagName("td")
+                                arr.push({
+                                    seqNo: row[0].firstChild.value
+                                    , amt: row[1].firstChild.value.replaceAll(",", "")
+                                    , addAmt: row[2].firstChild.value.replaceAll(",", "")
+                                    , useYn: row[4].firstChild.value
+                                })
+                            }
+
+                            obj = await RequestPUTApi("/api/ModChargeList", {
+                                RestId: getParams("restId")
+                                , AllUseYn: getSelectedValue("charge_use_yn")
+                                , chargeList: arr
+                            })
+
+                            alertModal.setModalContent("알림", ((obj.resultCode === "00") ? "수정 되었습니다." : "다시 시도해주세요."))
+                            break
+                    }
+                }
+            )
+        } //클릭 이벤트
+
+        function onClickStoreInfoModButton() {
+
+            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+            const selectNm = getSelectedValue("accountBk")
+            if ((oldAccountNo.textContent !== accountNo.value)) {
+                alertModal.setModalContent("알림", "계좌정보가 변경 되었습니다, 계좌인증을 해주세요.")
+            } else if (oldAccountBk.textContent !== selectNm && selectNm === "") {
+                alertModal.setModalContent("알림", "계좌정보가 변경 되었습니다, 계좌인증을 해주세요.")
+            } else {
+                RequestPUTApi("/api/ModStoreInfo", {
+                    restNm: restNm.value,
+                    bizNum: bizNum.value,
+                    tel: tel.value.replaceAll("-", ""),
+                    email: email.value,
+                    ceo: ceo.value,
+                    intro: intro.value.replaceAll("'","\'"),
+                    open: document.getElementById("open").value,
+                    account: account.value, //계좌 관련 수정해야함
+                    accountNm: accountNm.value,
+                    accountNo: accountNo.value,
+                    bankCd: getSelectedValue("accountBk"),
+                    restId: getParams("restId"),
+                    useYn: getSelectedValue("useYn"),
+                    memo: memo.value,
+                    notice: notice.value,
+                }).then(function (data) {
+                    alertModal.setModalContent("알림", ((data.resultCode === "00") ? "가맹점 정보가 수정되었습니다." : "오류가 발생했습니다."))
+                    getStoreInfoData()
+                })
+            }
+        }
+
+        async function onClickMenuModButton(obj, bln) {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요")
+            if (bln) {
+                const result = await itemImgUpload('modal_mod_filePath', modal_mod_menuId.textContent)
+                const codeId = getSelectedValue("modal_mod_category_select")
+
+                const params = {
+                    menuNm: modal_mod_menuNm.value,
+                    menuPrice: modal_mod_menu_price.value.replaceAll(",", ""),
+                    useYn: getSelectedValue("modal_mod_menu_useYn"),
+                    bestYn: getSelectedValue("modal_mod_menu_bestYn"),
+                    codeId: (codeId === "0") ? modal_mod_codeId.textContent : codeId,
+                    restId: getParams("restId"),
+                    menuNo: modal_mod_menuId.textContent,
+                    prodId: modal_mod_prod_cd.value,
+                    salesEndDate: modal_mod_prod_date.value,
+                    imagePath: modal_mod_filePath.value
+                }
+
+                const opts = {
+                    method: "PUT",
+                    headers: {'Content-Type': 'application/json;', 'Accept': '*/*'},
+                    body: JSON.stringify(params),
+                }
+
+                fetch("/api/ModMenu", opts).then(function (response) {
+                    return response.json();
+                }).then(async function (data) {
+                    getStoreMenuData(obj, getParams("codeId"))
+                    alertModal.setModalContent("알림", (data.resultCode === "00") ?
+                        ((result) ? "수정되었습니다." : "오류가 발생했습니다 (이미지 업로드에 실패했습니다.)")
+                        : "오류가 발생했습니다.")
+                })
+            }
+            modal_mod_menuNm.value = ""
+            modal_mod_menu_price.value = ""
+            modal_mod_category_select.selectedIndex = -1
+            modal_mod_menu_useYn.selectedIndex = 0
+            modal_mod_prod_cd.value = ""
+            modal_mod_prod_date.value = ""
+            modal_mod_itemImg.src = ""
+            modFileName.value = ""
+            dragData.delete("files")
+        }
+
+        //메뉴추가
+        async function onClickMenuAddButton(obj, bln) {
+            if (bln) {
+                const result = await itemImgUpload('modal_add_filePath', "")
+                getStoreMenuData(obj, getParams("codeId"))
+
+                const acSelect = getSelectedValue("select_add_modal_category_list")
+                if (modal_add_menu_nm.value === "") {
+                    msg_add_menu.textContent = "메뉴 이름을 입력해주세요."
+                } else if (modal_add_menu_price.value === "") {
+                    msg_add_menu.textContent = "메뉴 금액을 입력해주세요."
+                } else if (acSelect === "0") {
+                    msg_add_menu.textContent = "카테고리를 선택해주세요."
+                } else {
+                    const params = {
+                        menuNm: modal_add_menu_nm.value,
+                        restId: getParams("restId"),
+                        menuPrice: modal_add_menu_price.value.replaceAll(",", ""),
+                        useYn: getSelectedValue("modal_add_menu_useYn"),
+                        codeId: getSelectedValue("select_add_modal_category_list"),
+                        productCd: modal_add_product_cd.value,
+                        salesEndDate: modal_add_prod_date.value.replaceAll("-",""),
+                        itemImage: modal_add_filePath.value
+                    }
+
+                    const opts = {
+                        method: "POST",
+                        headers: {'Content-Type': 'application/json;', 'Accept': '*/*'},
+                        body: JSON.stringify(params)
+                    }
+
+                    fetch("/api/AddMenu", opts).then(function (response) {
+                        return response.json()
+                    }).then(async function (data) {
+                        msg_add_menu.textContent = (data.resultCode === "00") ?
+                            (result) ? "메뉴가 추가 되었습니다." : "오류가 발생했습니다. (이미지 업로드에 실패했습니다.)"
+                            : msg_add_menu.textContent = "오류가 발생했습니다."
+                    })
+                }
+                msg_add_container1.hidden = false
+                setTimeout(() => {
+                    msg_add_container1.hidden = true
+                }, 1500)
+            }
+
+            modal_add_menu_nm.value = ""
+            modal_add_menu_price.value = ""
+            modal_add_menu_useYn.selectedIndex = 0
+            modal_add_product_cd.value = ""
+            modal_add_prod_date.value = ""
+            modal_add_itemImg.src = ""
+            addFileName.value = ""
+            dragData.delete("files")
+        }
+
+        //고객안내 관리
+        function facilityChange(obj, index) { //고객안내 URL입력시 팝업 해제
+            const check = checkUrlForm(obj.value)
+            document.getElementById("Facility" + index + "PopUp").disabled = check
+            if (check){
+                document.getElementById("Facility" + index + "PopUp").checked = !check
+            }
+        }
+
+        function facilityCheckBox(obj) { //고객안내 체크박스 체크시 다른 체크박스 해제
+            const thisId = obj.id
+            if (obj.checked === true) {
+                for (let i = 0; i < FacilityLength.textContent; i++) {
+                    if (thisId !== "Facility" + i + "PopUp")
+                        document.getElementById("Facility" + i + "PopUp").checked = false
+                }
+            }
+        }
+
+        //장부 검색 편집
+        function searchBookEnterKey() {
+            if (window.event.keyCode === 13) {
+                switch (event.target.id) {
+                    case "modal_search_keyword":
+                        getStoreLinkBookSearch(1)
+                        break
+                    case "search_keyword":
+                        search_value.textContent = search_keyword.value
+                        getStoreLinkBookData(1)
+                        break
+                }
+
+            }
+        } //연결장부 검색 엔터키 이벤트
+        function getTotalChargeAmtTable(obj) {
+            obj.value = numberWithCommas(obj.value.replaceAll(/[^0-9]/g, ""))
+            const list = document.getElementById("chargeTable").getElementsByTagName("tr")
+            for (const rows of list) {
+                const row = rows.getElementsByTagName("td")
+                for (const cells of row) {
+                    if (cells.firstChild === obj) {
+                        let price = (row[1].firstChild.value).replaceAll(/[^0-9]/g, "")
+                        let bonus = (row[2].firstChild.value).replaceAll(/[^0-9]/g, "")
+                        row[3].firstChild.value = numberWithCommas(price * 1 + bonus * 1)
+                    }
+                }
+            }
+        }
+
+        function getTotalChargeAmtModal() {
+            modal_add_charge_all.value = (modal_add_charge_price.value) * 1 + (modal_add_charge_bonus.value) * 1
+        }
+
+        function openPaidPopup(grpId) {
+            document.getElementById("selectGrpId").value = grpId;
+            getUnpaidList();
+        }
+
+        function getPaidOkList() {
+
+            let sendData = {
+                grpId: document.getElementById("selectGrpId").value,
+                restId: getParams("restId"),
+                startDate: document.getElementById("pstartDate").value,
+                endDate: document.getElementById("pendDate").value,
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetPaidOkLIST', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                let html = "";
+                let number = 1
+                if (res.resultData.totalCnt > 0) {
+                    res.resultData.paidOkList.forEach(function (v) {
+                        html += "<tr><td><p class=\"text-center text-s font-weight-bold mb-0\">" + number + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + v.grpNm + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + v.accStDay + "</p></td>"
+                        html += "<td><p class=\"text-right text-s font-weight-bold mb-0\">" + numberWithCommas(v.creditAmt) + "원</p></td>"
+
+                        let payInfoNm = "";
+                        if (v.payInfo == "0") {
+                            payInfoNm = '계좌이체';
+                        } else if (v.payInfo == "1") {
+                            payInfoNm = '카드';
+                        } else if (v.payInfo == "2") {
+                            payInfoNm = '관리자계좌이체';
+                        } else if (v.payInfo == "3") {
+                            payInfoNm = '매장';
+                        }
+
+                        let paymentTyNm = "";
+                        let cancelbtn = false;
+                        if (v.paymentTy == "0") {
+                            paymentTyNm = '선불결제';
+                        } else if (v.paymentTy == "1") {
+                            paymentTyNm = '선불취소';
+                        } else if (v.paymentTy == "3") {
+                            paymentTyNm = '후불결제';
+                            cancelbtn = true;
+                        } else if (v.paymentTy == "4") {
+                            paymentTyNm = '후불취소';
+                        }
+
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + payInfoNm + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + paymentTyNm + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">"
+                        if (cancelbtn == true) {
+                            html += "    <button type=\"button\" class=\"btn btn-outline-danger btn-sm mb-0\"  onclick='SetPaidCancel(\"" + v.moid + "\",1)'>취소</button>"
+                        }
+
+                        html += "     </p></td></tr>"
+                        number++
+                    });
+                }
+                document.getElementById("paidOklist").innerHTML = html;
+                // getPaginationName(data.totalCnt, pageNo, 10, "getStoreLinkBookData", "pageNavBook")
+                //    getPagination(res.resultData.totalCount,pageNo,pageSize,"getList");
+
+            });
+
+            FunLoadingBarFinish();
+
+        }
+
+        function getUnpaidList() {
+
+            let sendData = {
+                grpId: document.getElementById("selectGrpId").value,
+                restId: getParams("restId"),
+                accStDay: document.getElementById("accStDay").value,
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetUnpaidList', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+
+                let html = "";
+                let number = 1
+                if (res.resultData.totalCnt > 0) {
+                    res.resultData.unPaidList.forEach(function (v) {
+                        html += "<tr><td><p class=\"text-center text-s font-weight-bold mb-0\">" + number + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + v.orderDate + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + v.orderer + "</p></td>"
+                        html += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + numberWithCommas(v.totalAmt) + "원</p></td></tr>"
+                        number++
+                    });
+                }
+                document.getElementById("modalUnpaidList").innerHTML = html;
+                document.getElementById("unpaidTotalAmt").value = numberWithCommas(res.resultData.totalAmt);
+                // getPaginationName(data.totalCnt, pageNo, 10, "getStoreLinkBookData", "pageNavBook")
+                //    getPagination(res.resultData.totalCount,pageNo,pageSize,"getList");
+
+            });
+
+            FunLoadingBarFinish();
+
+        }
+
+        function isEmpty(str) {
+
+            if (typeof str == "undefined" || str == null || str == "")
+                return true;
+            else
+                return false;
+        }
+
+        function resetPaidValue() {
+            document.getElementById("accStDay").value = getDate(0, 0)
+            document.getElementById("modalUnpaidList").innerHTML = ""
+            document.getElementById("unpaidTotalAmt").value = ""
+            document.getElementById("payInfo").value = ""
+        }
+
+        function setpaidOk() {
+
+            let totalAmt = document.getElementById("unpaidTotalAmt").value.replaceAll(',', '')
+            let payInfo = document.getElementById("payInfo").value
+            let grpId = document.getElementById("selectGrpId").value
+
+
+            if (isEmpty(totalAmt) == true) {
+                alert("정산금액이 잘못되었습니다.")
+                return;
+            }
+            if (isEmpty(payInfo) == true) {
+                alert("정산방법을 선택해주세요.")
+                return;
+            }
+            FunLoadingBarStart();
+
+            let sendData = {
+                restId: getParams("restId"),
+                grpId: grpId,
+                accStDay: document.getElementById("accStDay").value,
+                totalAmt: totalAmt,
+                payInfo: payInfo,
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/SetpaidOk', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                // console.log(res)
+                if (res.resultCode == "00") {
+                    location.reload();
+                } else if (res.resultCode == "99") {
+                    FunLoadingBarFinish();
+                    alert(res.resultMsg);
+                    return;
+                } else {
+                    FunLoadingBarFinish();
+                    alert("통신 오류");
+                    return;
+                }
+            });
+        };
+
+        function SetPaidCancel(moid) {
+
+            FunLoadingBarStart();
+
+            let sendData = {
+                moid: moid,
+                restId: getParams("restId"),
+            };
+            var opts = {
+                method: 'DELETE',
+                body: JSON.stringify(sendData),
+                headers: {"Content-Type": "application/json"}
+            };
+            fetch('/api/SetPaidCancel', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                // console.log(res)
+                if (res.resultCode == "00") {
+                    location.reload();
+                } else if (res.resultCode == "99") {
+                    FunLoadingBarFinish();
+                    alert(res.resultMsg);
+                    return;
+                } else {
+                    FunLoadingBarFinish();
+                    alert("통신 오류");
+                    return;
+                }
+            });
+        };
+
+        // 파일 업로드
+        async function itemImgUpload(pathId, menuId) {
+            if (dragData.has("files")) {
+                const imgOpts = {method: 'POST', body: dragData};
+                const response = await fetch('/api/MenuImg?restId=' + getParams("restId") + "&menuId=" + menuId, imgOpts).then(function (response) {
+                    return response.json();
+                })
+
+                const filePath = document.getElementById(pathId)
+                if (response.resultCode === "00") {
+                    filePath.value = response.resultPath
+                } else {
+                    return false
+                }
+            }
+            return true
+        }
+
+
+        function readImage(input, nameElement, previewName) {
+            const preview = document.getElementById(previewName)
+            const fileName = document.getElementById(nameElement)
+
+            if (input.files && input.files[0]) {
+                const extend = input.files[0].name.split(".").pop()
+                if (!(extend === "jpg" || extend === "png" || extend === "jpeg" || extend === "gif")) {
+                    input.value = ""
+                    fileName.value = "이미지를 다시 선택해주세요, (업로드 가능한 확장자는 jpg , png , jpeg , gif 입니다.)"
+                    fileName.style.color = "red"
+                    return
+                }
+                fileName.style.color = ""
+
+                const reader = new FileReader()
+                reader.onload = e => {
+                    preview.src = e.target.result
+                }
+                reader.readAsDataURL(input.files[0])
+                dragData.delete("files")
+                dragData.append("files", input.files[0], input.files[0].name)
+                fileName.value = input.files[0].name
+            }
+        }
+
+        function fileDragNDrop(preview, previewBox, fileName) {
+            const box = document.getElementById(previewBox)
+            const img = document.getElementById(preview)
+            const name = document.getElementById(fileName)
+
+            box.addEventListener('dragover', function (event) {
+                event.preventDefault()
+                box.style.border = '2px solid rgb(232, 135, 234)'
+                box.style.borderRadius = '0.5rem'
+            })
+
+            box.addEventListener('dragleave', function (event) {
+                event.preventDefault()
+                box.style.border = '1px solid #d2d6da'
+                box.style.borderRadius = '0.5rem'
+            })
+
+            box.addEventListener('drop', function (event) {
+                event.preventDefault()
+                box.style.border = '1px solid #d2d6da'
+                box.style.borderRadius = '0.5rem'
+
+                const image = event.dataTransfer.files[0]
+                const extend = image.name.split(".").pop()
+
+                if (!(extend === "jpg" || extend === "png" || extend === "jpeg" || extend === "gif")) {
+                    name.value = "이미지를 다시 선택해주세요, (업로드 가능한 확장자는 jpg , png , jpeg , gif 입니다.)"
+                    name.style.color = "red"
+                    return
+                }
+                name.style.color = ""
+
+                const reader = new FileReader()
+                reader.onload = e => {
+                    img.src = e.target.result
+                }
+                reader.readAsDataURL(image)
+                dragData.delete("files")
+                dragData.append("files", image, image.name)
+                name.value = image.name
+            })
+        }
+
+
+    </script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/store';">가맹점관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">가맹점관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4 mb-8">
+
+        <!--백버튼-->
+        <div class="card-header-new pb-0 mb-0" id="backButton">
+            <div class="row">
+                <div class="col-md-3">
+                    <h4 class="mt-2" id="storeTitle">가맹점관리 상세</h4></div>
+                <div class="col">
+                    <button type="button" class="btn bg-gradient-primary mt-2" onclick="location.href='/admin/store'">
+                        뒤로가기
+                    </button>
+
+                </div>
+            </div>
+        </div>
+
+        <!--탭을 전환되는 패널 정보-->
+        <div class="row">
+            <div class="col text-left ms-3">
+                <button class="btn btn-sm bg-gradient-secondary disabledSwitch" id="tap_info" onclick="tap_event(this)">
+                    상세정보
+                </button>
+                <button class="btn btn-sm bg-gradient-white" id="tap_cs" onclick="tap_event(this)">CS내역</button>
+                <button class="btn btn-sm bg-gradient-white" id="tap_book" onclick="tap_event(this)">연결장부관리</button>
+                <button class="btn btn-sm bg-gradient-white" id="tap_charge" onclick="tap_event(this)">선불충전관리</button>
+                <button class="btn btn-sm bg-gradient-white" id="tap_menu" onclick="tap_event(this)">메뉴관리</button>
+                <button class="btn btn-sm bg-gradient-white" id="tap_facility" onclick="tap_event(this)">고객안내관리</button>
+            </div>
+        </div>
+
+        <!--가맹점 정보-->
+        <div id="search_value" hidden></div>
+        <div id="info_view">
+            <div class='row ms-3 p-3 card'>
+                <div class="row me-3 ms-3 p-3 ">
+                    <div class="col-2 mb-4 "><h5>가맹점 정보</h5></div>
+                    <div class="col-2">
+                    </div>
+                </div>
+                <div class='row'>
+                    <div class="col-2 ms-3 mt-2">
+                        <h6>사용여부</h6>
+                    </div>
+                    <div class='col-2 ms-2 mb-2'>
+                        <select class='form-control customBorder' id='useYn'
+                                style='padding: 0; margin: 0; padding-left: 10px;'>
+                            <option value='Y'>사용중</option>
+                            <option value='N'>미사용</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6 id='restId'>가맹점명</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder " value='' id="restNm">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>사업자번호</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder  disableGray" value='' id="bizNum" disabled>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>전화번호</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder " type='text' value='' id="tel" maxlength='15'
+                                   onkeyup='textNumHpNum(this)'>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>이메일</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder " value='' id="email">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6 id='ceoNm'>대표자</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder " value='' id="ceo">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>매장소개</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder " maxlength='150' value='' id="intro">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>등록일</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder blockText disableGray" value='' id="joinDate" disabled>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>영업시간</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <input class="customBorder " value='' id="open">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-2 ms-3">
+                            <h6>계좌정보</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class='row'>
+                                <div class='col-2'>
+                                    <div id='oldAccountBk' hidden></div>
+                                    <select class="customBorder disableGray" id="accountBk">
+                                        <option disabled selected value="">선택해주세요</option>
+                                    </select>
+                                </div>
+                                <div class='col-2'>
+                                    <div id='oldAccountNm' hidden></div>
+                                    <input class="customBorder disableGray" id="accountNm" disabled>
+                                </div>
+                                <div class='col'>
+                                    <div id='oldAccountNo' hidden></div>
+                                    <input class="customBorder disableGray" id="accountNo">
+                                </div>
+                                <div class='col-2'>
+                                    <button class="btn btn-sm bg-gradient-primary" style="width: 120px"
+                                            id="btn_check_account"
+                                            data-bs-toggle='modal' data-bs-target='#AccountModel'>계좌 확인
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="row restInfoDisplay" id="memoHeader">
+                        <div class="col-2 ms-3">
+                            <h6>이용안내</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <textarea class="customBorder blockText" id="memo"
+                                      style="margin-bottom: 3px; min-height: 1rem; overflow-y: hidden; resize: none;"
+                                      onkeyup="resize(this)" onkeydown="resize(this)"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="row restInfoDisplay" id="noticeHeader">
+                        <div class="col-2 ms-3">
+                            <h6>주의사항</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <textarea class="customBorder blockText" id="notice"
+                                      style="min-height: 1rem; overflow-y: hidden; resize: none;" onkeyup="resize(this)"
+                                      onkeydown="resize(this)"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class='h6' id='accountCheck'></div>
+
+                    </div>
+                    <div class="row">
+                        <div class="col-9"></div>
+                        <div class="col-3 mt-4 text-right">
+
+                            <button class="btn bg-gradient-primary" style="width: 160px" id="btn_mod_store_info"
+                                    onclick="onClickStoreInfoModButton()"
+                                    data-bs-toggle="modal" data-bs-target="#AlertModal">가맹점 수정사항 적용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class='row ms-3 p-3 card mt-4'>
+                <div class="row me-3 ms-3 p-3 ">
+                    <h5>가맹점 이미지</h5>
+                    <div class=" form-group col-5">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" type="file" name="restImgFile" id="restImgFile">
+                            <button class="btn btn-outline-primary mb-0" onclick="uploadImg();">업로드</button>
+                        </div>
+                    </div>
+                    <img src="" id="restImg" class="img-fluid shadow border-radius-xl" style="width: 30%">
+                </div>
+            </div>
+        </div>
+
+        <div id="cs_view" hidden>
+            <div class='row ms-3 p-3 card'>
+                <div id="csList"></div>
+            </div>
+        </div>
+
+        <div id="book_view" hidden>
+            <div class='row ms-3 p-3 card'>
+                <div class="row ms-3 me-3 p-3">
+                    <div class='col-2 h5 mt-1'>연결 장부 관리</div>
+                    <div class='col'>
+                        <div class="form-group">
+                            <label for='search_keyword' class="h6" hidden></label>
+                            <div class="input-group input-group-alternative mb-4">
+                                <input class='form-control' id='search_keyword' onkeyup='searchBookEnterKey()'
+                                       placeholder='연결 장부 검색'/>
+                                <button type="button" class="btn bg-gradient-primary mb-0"
+                                        id='linkBookSearch'>검색
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class='col text-right me-5'>
+                        <div class="form-group">
+                            <button type="button" class="btn bg-gradient-primary mb-0" id="btn_search"
+                                    data-bs-toggle='modal' data-bs-target='#modal_book_search'>장부 추가
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0 mt-3">
+                        <thead>
+                        <tr>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">NO.
+                            </th>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">장부이름
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                인원
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                연결 상태
+                            </th>
+                            <th class="text-right text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                충전금액
+                            </th>
+                            <th class="text-right text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                미정산금액
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                등록일+
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody id="linkList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="linkListBlink"></p>
+                </div>
+                <nav id='pageNavBook'></nav>
+            </div>
+            <div class='row ms-3 p-3 card mt-5'>
+                <div class="row ms-3 me-3 p-3">
+                    <div class='col-2 h5 mt-1'>매장 결제 내역</div>
+                    <div class='col'>
+                        <div class="form-group">
+                            <label for='search_keyword' class="h6" hidden></label>
+                            <div class="input-group input-group-alternative mb-1">
+                                <div class="form-group ">
+                                    <div class="input-group input-group-alternative mb-1">
+                                        <input class="form-control" type="date" value="" id="pstartDate"
+                                               onchange="getPaidOkList()">
+                                    </div>
+                                </div>
+                                <div class="form-group ">
+                                    <div class="input-group input-group-alternative mb-1">
+                                        <input class="form-control" type="date" value="" id="pendDate"
+                                               onchange="getPaidOkList()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0 mt-1">
+                        <thead>
+                        <tr>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">NO.
+                            </th>
+                            <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">장부이름
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                결제일
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                결제 금액
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                결제타입
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                결제구분
+                            </th>
+                            <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                비고
+                            </th>
+
+                        </tr>
+                        </thead>
+                        <tbody id="paidOklist"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="linkListBlink222"></p>
+                </div>
+                <nav id='pageNavBook222'></nav>
+            </div>
+        </div>
+
+        <div id="charge_view" hidden>
+            <div class="row ">
+                <div class="col-6">
+                    <div class="container card p-3">
+                        <div class="row me-3 ms-3 p-3 ">
+                            <div class="col-3 mb-4 mt-1"><h5>선불 충전 관리</h5></div>
+                            <div class="col-3 mb-4">
+                                <select class="form-control cBorder" id='charge_use_yn'
+                                        onchange='onCheckedUseSelect(this)'>
+                                    <option value='Y'>사용</option>
+                                    <option value='N'>미사용</option>
+                                </select>
+                            </div>
+                            <div class="col mb-4 text-right">
+                                <div class="btn bg-gradient-primary" data-bs-target="#ChargeModel"
+                                     data-bs-toggle="modal" id='btn_add_item' hidden>충전 항목 추가
+                                </div>
+                            </div>
+                        </div>
+                        <div class="container mb-3">
+
+                            <div class="table-responsive p-0" style="overflow-x: hidden">
+                                <table class="table align-items-center mb-0">
+                                    <thead id="bookHeader">
+                                    <tr>
+                                        <th class="text-center text-sm text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                            결제 금액
+                                        </th>
+                                        <th class="text-center text-sm text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                            보너스 금액
+                                        </th>
+                                        <th class="text-center text-sm text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                            충전 금액
+                                        </th>
+                                        <th class="text-center text-sm text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                            사용여부
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="chargeTable">
+                                    </tbody>
+                                </table>
+                                <div class='text-center h6' id='chargeBlink'>충전 항목이 없습니다.</div>
+                            </div>
+                            <div class='row'>
+                                <div class='col'>
+                                </div>
+                                <div class='col-4 text-right me-3 mt-3'>
+                                    <button class="btn bg-gradient-primary m-0" id='btn_charge_modify'
+                                            data-bs-toggle='modal' data-bs-target='#AlertModal'>수정사항 적용
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="menu_view" hidden>
+            <div class='row'>
+                <div class='col ms-6 mt-4 h5'>카테고리 / 메뉴 관리
+                </div>
+                <div class='col text-right me-5'>
+                </div>
+                <div class='row ms-3 p-3'>
+                    <div class='ms-1 p-3 card me-2' style='flex: 0 0 auto; width: 33%;'>
+                        <div class='row'>
+                            <div class='col-4 h5 text-left ps-3'>카테고리 목록</div>
+                            <div class='col text-right'>
+                                <div class='btn bg-gradient-primary ms-1 me-1' id='btn_open_all_menu'
+                                     style='padding-right: 25px; padding-left: 25px;'>모든메뉴보기
+                                </div>
+                                <div class='btn bg-gradient-primary'
+                                     style='padding-right: 15px; padding-left: 15px;'
+                                     data-bs-toggle="modal" data-bs-target="#modal_add_category"
+                                     id='btn_open_add_category_modal'>카테고리 추가하기
+                                </div>
+                            </div>
+                            <div id='categoryLength' hidden></div>
+
+                        </div>
+
+                        <div class='row'>
+                            <div class="table-responsive">
+                                <table class="table align-items-center mb-0 mt-3">
+                                    <thead id="categoryHeader">
+                                    <tr>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            NO.
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            카테고리명
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            사용유무
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            비고
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="categoryList"></tbody>
+                                </table>
+                                <p class="text-center text-s font-weight-bold mb-3 mt-2">
+                                <div class='row text-center'>
+                                    <div class='h6 ps-5 pe-5' id="categoryListBlink"></div>
+                                </div>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class='card text-center p-3' style='flex: 0 0 auto; width: 66%;' id='menu_list_view'
+                         hidden>
+
+                        <div class='row '>
+                            <div class='col-2 h5 text-left ps-3'>메뉴 목록</div>
+                            <div class='col-2'>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="checkbox" value="" id="menu_use_visible"
+                                           onclick='getStoreMenuData(this, "")'>
+                                    <label class="custom-control-label mt-1" for="menu_use_visible">사용중인 메뉴</label>
+                                </div>
+                            </div>
+                            <div class='col text-right me-3'>
+                                <div class='btn bg-gradient-primary ms-1'
+                                     style='padding-right: 25px; padding-left: 25px;'
+                                     data-bs-toggle="modal" data-bs-target="#modal_add_menu"
+                                     id='btn_open_add_menu_modal'>메뉴 추가하기
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class='row '>
+                            <div class="table-responsive">
+                                <table class="table align-items-center mb-0 mt-3">
+                                    <thead id="menuHeader">
+                                    <tr>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            NO.
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            상품명
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            카테고리
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            사용유무
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            추천여부
+                                        </th>
+                                        <th class="text-right text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            가격
+                                        </th>
+                                        <th class="text-right text-uppercase text-secondary text-s font-weight-bolder opacity-6"></th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="menuList"></tbody>
+                                </table>
+                                <p class="text-center text-s font-weight-bold mb-3 mt-2">
+                                <div class='row text-center'>
+                                    <div class='h6 ps-5 pe-5' id='menuListBlink'>좌측 항목에서 카테고리를 선택해주세요.</div>
+                                </div>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="facility_view" hidden>
+            <div class='row ms-3 p-3 card'>
+                <div class='ms-3 me-3 p-3 row'>
+                    <div class='col-2 h5'>고객안내 관리</div>
+                    <div class="col-9 text-right">
+                        <button type="button" class="btn bg-gradient-primary" id="btn_add_facility"
+                                data-bs-target='#FacilityModel' data-bs-toggle='modal' style='width: 140px' hidden>
+                            고객 안내 추가
+                        </button>
+                    </div>
+                </div>
+                <div class='container pb-4'>
+                    <div id='FacilityLength' hidden></div>
+                    <div id='FacilityView'></div>
+                    <div class="row mt-2 text-right">
+                        <div class='col-11'>
+                            <button type='button' class='btn bg-gradient-primary mt-4' data-bs-target='#AlertModal'
+                                    data-bs-toggle='modal' id='btn_mod_facility' style='width: 160px'>고객안내 수정사항 적용
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--계좌확인 모달-->
+    <div class="modal fade" id="AccountModel" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header"><h5>계좌확인</h5></div>
+                <div class="modal-body" id='account_msg'>잠시만 기다려 주세요</div>
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" id="btn_account_cancel" data-bs-dismiss="modal">취소
+                    </button>
+                    <button class="btn bg-gradient-primary" id="btn_account_commit" data-bs-dismiss="modal">확인
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--alert modal (cs내역 저장)-->
+    <div id="CsAlert"></div>
+    <!--장부연결 모달-->
+    <div class="modal fade" id="modal_book_connect" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">연결 장부 설정</h5>
+                </div>
+                <div class="modal-body">
+
+                    <input id="grpId" hidden/>
+                    <div id="linkTy" hidden></div>
+
+                    <div class="container p-3">
+                        <div class="row mb-2">
+
+                            <div class="col-4 text-dark mt-2">장부이름</div>
+                            <input class="col cBorder blockText disableGray" id="modal_book_nm" value="장부이름"
+                                   disabled>
+
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">장부인원</div>
+                            <input class="col cBorder blockText disableGray" id="modal_book_users" value="00명"
+                                   disabled>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">장부타입</div>
+                            <div class="col">
+                                <div class="row mb-2">
+                                    <select class="cBorder form-control" id="modal_book_payTy">
+                                        <option value="0">선불</option>
+                                        <option value="1">후불</option>
+                                    </select>
+                                </div>
+                                <div class="row">
+                                    <input class="col cBorder disableGray" id="modal_book_joinTy" disabled/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">잔액/정산 금액</div>
+                            <input class="col cBorder blockText disableGray" type="text" id="modal_book_amt"
+                                   value="1,000,000 원" disabled>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">연결 상태</div>
+                            <select class="col cBorder " id="modal_book_link_stat"
+                                    onchange="onChangeLink(this)">
+                                <option value="1">연결</option>
+                                <option value="3">연결해제</option>
+                            </select>
+
+                        </div>
+
+                        <div class="row mb-2" id="link_cancel_comment" hidden>
+                            <div class="form-group">
+                                <label class="form-control-label mb-0 text-dark" for="rej_comment">사유
+                                    입력란</label>
+                                <input class="cBorder" id="rej_comment"/>
+                            </div>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">연결요청자</div>
+                            <input class="col disableGray cBorder" id="modal_book_req" disabled/>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">승인 일시</div>
+                            <input class="col cBorder blockText disableGray" id="modal_book_join"
+                                   value="2021-10-27"
+                                   disabled>
+                        </div>
+
+                        <div class="row mb-2">
+                            <div class="col-4 text-dark mt-2">최근 수정일</div>
+                            <input class="col cBorder blockText disableGray" id="modal_book_mod_date"
+                                   value="2021-10-27"
+                                   disabled>
+                        </div>
+
+
+                    </div>
+
+
+                </div>
+                <div class="modal-footer me-3">
+                    <button type="button" class="btn bg-gradient-secondary"
+                            data-bs-dismiss="modal"
+                            id="btn_cancel_mod_modal_book"
+                            style="width: 116px;">취소
+                    </button>
+                    <button type="button" class="btn bg-gradient-primary"
+                            data-bs-dismiss="modal"
+                            data-bs-target="#AlertModal" data-bs-toggle="modal"
+                            id="btn_commit_mod_modal_book"
+                            style="width: 116px;">수정사항 적용
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!--TODO 메뉴추가 시 이미지 삽입과 상품 만료일 추가-->
+    <!--메뉴 추가 모달-->
+    <div class="modal fade" id="modal_add_menu" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">메뉴 추가</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+
+                    <div class="container p-3">
+                        <div class="row ps-3">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="select_add_modal_category_list" class="text-sm mb-0">카테고리</label>
+                                    <select class="form-control cBorder" id="select_add_modal_category_list">
+                                        <option value="0" disabled>선택해주세요</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-6">
+
+                                <div class="form-group">
+                                    <label for="modal_add_menu_nm" class="text-sm mb-0">메뉴 이름</label>
+                                    <input class="form-control cBorder" type="text"
+                                           value="" placeholder="메뉴 이름 입력" id="modal_add_menu_nm">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row ps-3">
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="modal_add_menu_price" class="text-sm mb-0">금액</label>
+                                    <input class="form-control cBorder" type="text"
+                                           value="" placeholder="급액입력" id="modal_add_menu_price"
+                                           onchange="textNumComma(this)">
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="form-group">
+                                    <label for="modal_add_menu_useYn" class="text-sm mb-0">사용유무</label>
+                                    <select class="form-control cBorder" id="modal_add_menu_useYn">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                        </div>
+                        <div class="row ps-3" id="modal_add_prod" hidden>
+                            <div class="form-group mb-3">
+                                <label for="modal_add_product_cd" class="text-sm mb-0">상품 코드</label>
+                                <input class="form-control cBorder" type="text"
+                                       value="" placeholder="해당 할 경우만 입력" id="modal_add_product_cd">
+                            </div>
+                            <div class="form-group">
+                                <label for="modal_add_prod_date" class="text-sm mb-0">판매 만료일</label>
+                                <input class="form-control cBorder" type="date"
+                                       placeholder="판매 만료일 입력" value=""
+                                       id="modal_add_prod_date"/>
+                            </div>
+                        </div>
+                        <div class="row ps-3" id="modal_add_img">
+                            <label for="modal_add_itemImg" class="text-sm mb-0">상품 이미지</label>
+                            <div class="form-group mb-1 text-center">
+                                <div class="input-group mb-2" style="height: 30px">
+                                    <button class="btn btn-outline-primary mb-0 pt-1" type="button"
+                                            style="height: 30px;padding-top: 0.4rem !important;"
+                                            onclick='document.getElementById("addImgFile").click()'>파일 선택
+                                    </button>
+                                    <input type="text" class="form-control" id="addFileName" placeholder="선택된 파일 없음"
+                                           value=""
+                                           style="height: 30px; padding-left:10px" disabled/>
+                                </div>
+                                <input type="file" class="form-control"
+                                       onchange='readImage(this,"addFileName", "modal_add_itemImg")'
+                                       id="addImgFile"
+                                       style="display: none">
+                                <input id="modal_add_filePath" style="display:none;"/>
+                                <div id="modal_add_itemImgBox" class="p-2"
+                                     style="border-radius: 5px; border: 1px solid #d2d6da;">
+                                    <img id="modal_add_itemImg" height="120px;" src=""/>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-10">
+                                <div class="row" id="msg_add_container1" hidden>
+                                    <div class="col h6 text-center mt-1" id="msg_add_menu">메뉴가 추가 되었습니다.</div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <button type="button" class="btn bg-gradient-primary mb-0"
+                                        id="btn_commit_add_modal_menu" onclick="onClickMenuAddButton(this,true)">추가 하기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                            id='modal_menu_add_dismiss' onclick="onClickMenuAddButton(this,false)">닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--카테고리 추가 모달-->
+    <div class="modal fade" id="modal_add_category" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">카테고리 추가</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="container p-3">
+                        <div class="row">
+                            <div class="h5">카테고리</div>
+                        </div>
+                        <div class="row ps-3">
+                            <div class="col-8">
+                                <div class="form-group">
+                                    <label for="modal_add_categoryNm" class="form-control-label h6">카테고리
+                                        이름</label>
+                                    <input class="form-control cBorder" type="text"
+                                           value="" placeholder="카테고리 이름" id="modal_add_categoryNm">
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="form-group">
+                                    <label for="modal_category_useYn" class="form-control-label h6">사용유무</label>
+                                    <select class="form-control cBorder" id="modal_add_category_useYn">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-10">
+                                <div class="row" id="msg_add_container2" hidden>
+                                    <div class="col h6 text-center mt-1" id="msg_add_category">카테고리가 추가 되었습니다.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <button type="button" class="btn bg-gradient-primary mb-0"
+                                        id="btn_commit_add_modal_category">추가 하기
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                            id="modal_category_add_dismiss">닫기
+                    </button>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--카테고리 편집 모달-->
+    <div class="modal fade" id="modal_mod_category" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">카테고리 편집</h5>
+                </div>
+                <div class="modal-body">
+                    <div id="modal_mod_categoryId" hidden></div>
+                    <div class="p-3">
+                        <div class="form-group mb-1">
+                            <label for="modal_mod_categoryNm" class="form-control-label h6 mb-0">카테고리 이름</label>
+                            <input class="form-control cBorder" type="text"
+                                   value="" placeholder="카테고리 이름" id="modal_mod_categoryNm">
+                        </div>
+
+                        <div class="form-group mb-1">
+                            <label for="modal_category_useYn" class="form-control-label h6 mb-0">사용유무</label>
+                            <select class="form-control cBorder" id="modal_category_useYn">
+                                <option value="Y">사용</option>
+                                <option value="N">미사용</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary"
+                            data-bs-dismiss="modal" id="btn_cancel_mod_category">취소
+                    </button>
+                    <button type="button" class="btn bg-gradient-primary"
+                            data-bs-dismiss="modal" data-bs-target="#AlertModal" data-bs-toggle="modal"
+                            id="btn_commit_mod_category">수정사항 적용
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--메뉴 편집 모달-->
+    <div class="modal fade" id="modal_mod_menu" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">메뉴 편집</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3">
+                        <div id="modal_mod_menuId" hidden></div>
+                        <div id="modal_mod_codeId" hidden></div>
+
+                        <div class="form-group mb-1">
+                            <label for="modal_mod_category_select" class="text-sm mb-0">카테고리</label>
+                            <select class="form-control customBorder p-0 ps-2 mb-2" id="modal_mod_category_select">
+                                <option value="0">카테고리1</option>
+                                <option value="1">카테고리2</option>
+                                <option value="2">카테고리3</option>
+                                <option value="3">카테고리4</option>
+                                <option value="4">카테고리5</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group mb-1">
+                            <label for="modal_mod_menuNm" class="text-sm mb-0">메뉴 이름</label>
+                            <input class="form-control customBorder p-0 ps-2 mb-2" placeholder="메뉴 입력" value=""
+                                   id="modal_mod_menuNm"/>
+                        </div>
+
+
+                        <div class="form-group mb-1">
+                            <label for="modal_mod_menu_price" class="text-sm mb-0">메뉴 금액</label>
+                            <input class="form-control customBorder p-0 ps-2 mb-2" placeholder="금액입력" value=""
+                                   id="modal_mod_menu_price" onchange="textNumComma(this)"/>
+                        </div>
+
+
+                        <div class="form-group mb-1">
+                            <label for="modal_mod_menu_useYn" class="text-sm mb-0">사용유무</label>
+                            <select class="form-control customBorder p-0 ps-2 mb-2" id="modal_mod_menu_useYn">
+                                <option value="Y">사용</option>
+                                <option value="N">미사용</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group mb-1">
+                            <label for="modal_mod_menu_bestYn" class="text-sm mb-0">추천메뉴 여부</label>
+                            <select class="form-control customBorder p-0 ps-2 mb-2" id="modal_mod_menu_bestYn">
+                                <option value="Y">추천메뉴</option>
+                                <option value="N">일반메뉴</option>
+                            </select>
+                        </div>
+
+                        <div id="modal_mod_prod" hidden>
+                            <div class="form-group mb-1">
+                                <label for="modal_mod_prod_cd" class="text-sm mb-0">상품 코드</label>
+                                <input class="form-control customBorder p-0 ps-2 mb-2" placeholder="상품코드 입력" value=""
+                                       id="modal_mod_prod_cd"/>
+                            </div>
+                            <div class="form-group mb-1">
+                                <label for="modal_mod_prod_date" class="text-sm mb-0">판매 만료일</label>
+                                <input class="form-control customBorder p-0 ps-2 mb-2" type="date"
+                                       placeholder="판매 만료일 입력" value=""
+                                       id="modal_mod_prod_date"/>
+                            </div>
+                        </div>
+
+                        <div id="modal_mod_img">
+                            <label for="modal_mod_itemImg" class="text-sm mb-0">상품 이미지</label>
+                            <div class="form-group mb-1 text-center">
+                                <div class="input-group mb-2" style="height: 30px">
+                                    <button class="btn btn-outline-primary mb-0 pt-1" type="button"
+                                            style="height: 30px;padding-top: 0.4rem !important;"
+                                            onclick='document.getElementById("modImgFile").click()'>파일 선택
+                                    </button>
+                                    <input type="text" class="form-control" id="modFileName" placeholder="선택된 파일 없음"
+                                           value=""
+                                           style="height: 30px; padding-left:10px" disabled/>
+                                </div>
+                                <input type="file" class="form-control"
+                                       onchange='readImage(this,"modFileName", "modal_mod_itemImg")'
+                                       id="modImgFile"
+                                       style="display: none">
+                                <input id="modal_mod_filePath" style="display:none;"/>
+                                <input id="modal_mod_filePath_old" style="display:none;"/>
+                                <div id="modal_mod_itemImgBox" class="p-2"
+                                     style="border-radius: 5px; border: 1px solid #d2d6da;">
+                                    <img id="modal_mod_itemImg" height="120px;" src=""/>
+                                </div>
+
+                            </div>
+                        </div>
+
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary" onclick="onClickMenuModButton(this,false)"
+                            data-bs-dismiss="modal">취소
+                    </button>
+                    <button type="button" class="btn bg-gradient-primary"
+                            data-bs-dismiss="modal" data-bs-target="#AlertModal" data-bs-toggle="modal"
+                            id="btn_commit_mod_menu" onclick="onClickMenuModButton(this,true)">수정사항 적용
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <!--편의시설 추가 모달-->
+    <div class="modal fade" id="FacilityModel" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header"><h5>고객안내 추가</h5></div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="modal_add_facility_nm">서비스 이름</label>
+                        <input class="form-control cBorder" placeholder="서비스 이름 입력" id="modal_add_facility_nm"
+                               maxlength='25'/>
+                    </div>
+                    <div class="form-group">
+                        <label for="modal_add_facility_detail">상세정보</label>
+                        <input class="form-control cBorder" placeholder="서비스 상세정보 입력"
+                               id="modal_add_facility_detail"
+                               maxlength="250"/>
+                    </div>
+                    <div class="col form-group">
+                        <label for="modal_add_facility_useYn">사용여부</label>
+                        <select class="form-control cBorder" id="modal_add_facility_useYn">
+                            <option value="1">사용</option>
+                            <option value="0">미사용</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" id="btn_add_facility_cancel"
+                            data-bs-dismiss="modal">
+                        취소
+                    </button>
+                    <button class="btn bg-gradient-primary" id="btn_add_facility_commit" data-bs-dismiss="modal"
+                            data-bs-target="#AlertModal" data-bs-toggle="modal">추가
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--연결장부 추가 모달-->
+    <div class="modal fade" id="modal_book_search" tabindex="-2" role="dialog">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>장부 검색</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="p-3">
+                        <div class="form-group">
+                            <label for='modal_search_keyword' class="h6">장부검색</label>
+                            <div class="input-group input-group-alternative mb-4">
+                                <input class='form-control' id='modal_search_keyword'
+                                       onkeyup='searchBookEnterKey()'
+                                       placeholder='전체 장부 검색'/>
+                                <button type="button" class="btn bg-gradient-primary mb-0"
+                                        id="btn_modal_search_book"
+                                        onclick='getStoreLinkBookSearch(1)'>검색
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="modal_book_search_view">
+                            <div class="table-responsive">
+                                <table class="table align-items-center mb-0 mt-3">
+                                    <thead>
+                                    <tr>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            NO.
+                                        </th>
+                                        <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            장부이름
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            장부장
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            인원
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            연결 상태
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            충전금액
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            등록일
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="modalLinkList"></tbody>
+                                </table>
+                                <p class="text-center text-s font-weight-bold mb-3 mt-2"
+                                   id="modalLinkListBlink"></p>
+                            </div>
+                        </div>
+                        <nav id="pageNav"></nav>
+                    </div>
+
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                            id="btn_cancel_search_modal">닫기
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <!--충전항목 추가 모달-->
+    <div class="modal fade" id="ChargeModel" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header"><h5>충전항목 추가</h5></div>
+                <div class="modal-body">
+                    <div class="container">
+
+                        <div class="row">
+                            <div class="col-11">
+                                <div class="form-group">
+                                    <label class="mb-0" for="modal_add_charge_price">결제 금액</label>
+                                    <input class="cBorder" id="modal_add_charge_price" placeholder="결제 금액 입력"
+                                           value="" type="number" maxlength="12" oninput="numberMaxLength(this)"
+                                           onkeyup="getTotalChargeAmtModal()"/>
+                                </div>
+                            </div>
+                            <div class="col-1 mt-4">
+                                <div class="h6">원</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-11">
+                                <div class="form-group">
+                                    <label class="mb-0" for="modal_add_charge_bonus">보너스 금액</label>
+                                    <input class="cBorder" id="modal_add_charge_bonus" placeholder="보너스 금액 입력"
+                                           value="" type="number" maxlength="12" oninput="numberMaxLength(this)"
+                                           onkeyup="getTotalChargeAmtModal()"/>
+                                </div>
+                            </div>
+                            <div class="col-1 mt-4">
+                                <div class="h6">원</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-11">
+                                <div class="form-group">
+                                    <label class="mb-0" for="modal_add_charge_all">충전 금액</label>
+                                    <input class="cBorder" id="modal_add_charge_all" placeholder="합산금액"
+                                           value="" type="number" maxlength="12" oninput="numberMaxLength(this)"
+                                           disabled/>
+                                </div>
+                            </div>
+                            <div class="col-1 mt-4">
+                                <div class="h6">원</div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col">
+                                <div class="form-group">
+                                    <label class="mb-0" for="modal_add_charge_useYn">사용여부</label>
+                                    <select class="cBorder" id="modal_add_charge_useYn">
+                                        <option value="Y">사용</option>
+                                        <option value="N">미사용</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" id="btn_charge_cancel" data-bs-dismiss="modal">
+                        취소
+                    </button>
+                    <button class="btn bg-gradient-primary" id="btn_charge_commit"
+                            data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">확인
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="modal fade" id="modal_unpaid_list" tabindex="-2" role="dialog" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>후불 정산</h5>
+                    <input type="hidden" id="selectGrpId">
+                </div>
+                <div class="modal-body">
+                    <div class="p-2">
+                        <div class="row">
+                            <div class="form-group col-5">
+                                <label for='modal_search_keyword' class="h6">기준일</label>
+                                <div class="input-group input-group-alternative mb-1">
+                                    <div class="form-group ">
+                                        <div class="input-group input-group-alternative mb-1">
+                                            <input class="form-control" type="date" value="" id="accStDay"
+                                                   onchange="getUnpaidList()">
+                                        </div>
+                                    </div>
+                                    <div class="form-group ">
+                                        <div class="input-group input-group-alternative mb-1">
+                                            <button type="button" class="btn bg-gradient-primary mb-0"
+                                                    onclick='getUnpaidList();'>검색
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for='modal_search_keyword' class="h6">정산금액</label>
+
+                                <div class="input-group input-group-alternative mb-1">
+                                    <div class="form-group ">
+                                        <select class="form-control cBorder" id='payInfo'>
+                                            <option value=''>==선택==</option>
+                                            <option value='1'>계좌이체</option>
+                                            <option value='3'>매장정산</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group  ms-1">
+                                        <input class="form-control text-lg text-warning font-weight-bolder"
+                                               style="width: 120px;" disabled type="input" readonly value=""
+                                               id="unpaidTotalAmt">
+                                    </div>
+                                    <div class="form-group">
+                                        <div class="input-group input-group-alternative mb-1 ms-4">
+                                            <button type="button" class="btn bg-gradient-info mb-0"
+                                                    onclick='setpaidOk()'>정산하기
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="modal_unpaid_search_view">
+                            <div class="table-responsive" style="height: 500px;">
+                                <table class="table align-items-center mb-0 mt-1">
+                                    <thead>
+                                    <tr>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            NO.
+                                        </th>
+                                        <th class="text-center text-secondary text-s font-weight-bolder opacity-6">주문일
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            주문자
+                                        </th>
+                                        <th class="text-center text-uppercase text-secondary text-s font-weight-bolder opacity-6">
+                                            금액
+                                        </th>
+                                    </tr>
+                                    </thead>
+                                    <tbody id="modalUnpaidList"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-secondary" data-bs-dismiss="modal" onclick="resetPaidValue()">닫기
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

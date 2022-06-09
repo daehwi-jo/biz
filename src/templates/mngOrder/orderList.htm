@@ -1,0 +1,281 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript" src="/public/js/commons/excelDown.js"></script>
+    <script type="text/javascript">
+
+
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("오류", "다시시도해주세요.")
+
+            if (sessionStorage.getItem("companyId") === "") {
+                document.getElementById("alertModalBtn").click()
+            }
+            getGrpIdSelectList()
+            getParamsData(location.href)
+        });
+
+        async function getOrderList(pageNo) {
+            FunLoadingBarStart()
+            const contentNum = document.getElementById("contentNum").value
+            const obj = await RequestGETApi("/api/OrderHistoryLookUp?"
+                + "&companyId=" + sessionStorage.getItem("companyId")
+                + "&searchGrpId=" + searchGrpIdSelect.value
+                + "&searchUserNm=" + searchText.value
+                + "&searchStartDt=" + startDate.value.replaceAll("-", "")
+                + "&searchEndDt=" + endDate.value.replaceAll("-", "")
+                + "&pageSize=" + contentNum
+                + "&pageNo=" + pageNo
+            )
+
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+
+            if (!!data) {
+                document.getElementById("totalCount").textContent = numberWithCommas(data.totalCount) + " 건"
+                document.getElementById("totalAmt").textContent = numberWithCommas(data.totalAmt) + " 원"
+                let html = ""
+                let blink = ""
+                if (data.orderList.length > 0) {
+                    let number = 1 + getContentNumber(pageNo, contentNum)
+                    const cases = {
+                        0: "NULL",
+                        1: "매장주문",
+                        2: "배당주문",
+                        3: "포장주문",
+                        4: "선물하기",
+                        5: "태블릿주문"
+                    }
+
+                    data.orderList.forEach(function (data) {
+                        html += "<tr>"
+                        html += "   <td class=\"align-middle text-center text-sm\">" + number + "</td>"
+                        html += "   <td>"
+                        html += "       <h6 class=\"mb-0 text-center text-sm\">" + data.grpNm + "</h6>"
+                        html += "</td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs text-center font-weight-bold mb-0\">" + data.userNm + "</p>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + data.orderDate + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + data.orderTime + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + data.restNm + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + data.menuCnt + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(data.totalAmt) + " 원</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center me-3\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + cases[data.orderType] + "</h6>"
+                        html += "   </td>"
+                        html += "</tr>"
+                        number++;
+                    })
+                    getPagination(data.totalCount, pageNo, contentNum, "getOrderList");
+                } else {
+                    blink = "데이터 없음"
+                }
+                document.getElementById("orderList").innerHTML = html
+                document.getElementById("listBlink").innerText = blink
+            }
+            FunLoadingBarFinish()
+        }
+
+        async function getGrpIdSelectList() {
+            const obj = await RequestGETApi("/api/GetCompanyBookList?companyId=" + sessionStorage.getItem("companyId") + "&userId=" + ((sessionStorage.getItem("authorCd") === "BM") ? sessionStorage.getItem("userId") : ""))
+            const data = (obj.resultCode === "00") ? obj.resultData.bookList : null
+            const select = window.document.getElementById('searchGrpIdSelect')
+
+            document.getElementById("startDate").value = getDate(0, 1)
+            document.getElementById("endDate").value = getDate(0, 0)
+            document.getElementById("searchText").value = ""
+
+            if (data.length === 0) {
+                const option = document.createElement('option')
+                option.textContent = "장부없음"
+                option.selected = true
+                select.append(option)
+            } else {
+                data.forEach(function (element) {
+                    const option = document.createElement('option')
+                    option.value = element.value
+                    option.textContent = element.label
+                    select.append(option)
+                })
+
+                await getOrderList(1)
+            }
+        }
+
+        function excelDownloads() {
+            alertModal.setModalContent("다운로드", "다운로드가 시작됩니다.")
+            excelDownload("/api/OrderHistoryExcel?companyId=" + sessionStorage.getItem("companyId")
+                + "&searchEndDt=" + endDate.value
+                + "&searchGrpId=" + searchGrpIdSelect.value
+                + "&searchStartDt=" + startDate.value
+                + "&searchUserNm=" + searchText.value,
+                "주문내역",
+                ["주문일", "주문시간", "사용자명", "장부명", "스토어", "메뉴", "수량", "금액", "정산구분", "결제", "비고"])
+        }
+
+    </script>
+
+    <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModals" style="display: none"></button>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">주문관리</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">주문내역 조회</a>
+            </li>
+        </ol>
+    </nav>
+
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>주문내역 조회</h5>
+        </div>
+
+        <!--검색 바 -->
+        <div class="row card">
+            <div class="row ms-3 mt-3">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchGrpIdSelect"
+                                    onchange='getOrderList(1)'></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="startDate">
+                </div>
+
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="endDate">
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" placeholder="사용자 검색" type="text" id="searchText"
+                                   onkeyup='searchEnterKey(getOrderList)'>
+                            <span class="input-group-text"><i class="ni ni-zoom-split-in"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="input-group input-group-alternative mb-3">
+                        <button type="button" class="btn bg-gradient-primary" id="btn_search" onclick="getOrderList(1)">
+                            조회
+                        </button>
+                        <button type="button" class="btn bg-gradient-secondary" id="btn_reset"
+                                onclick="getGrpIdSelectList()">초기화
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row card p-3 mt-4">
+
+            <!--전체 건수 및 엑셀-->
+            <div class="card-header pb-0"></div>
+            <div class="row ms-3 mt-3">
+                <div class="col-5">
+                    <div class="row me-3 mt-2">
+                        <div class="col"><p class="text-bold text-dark">전체 건수 : </p></div>
+                        <div class="col"><p class="text-bold" id="totalCount"></p></div>
+                        <div class="col"><p class="text-bold text-dark">총액 합계 : </p></div>
+                        <div class="col"><p class="text-bold" id="totalAmt"></p></div>
+                    </div>
+                </div>
+                <div class="col text-right me-3">
+                    <div class="bg-gradient-primary btn" type="button" id="btn_excelDown" onclick="excelDownloads()"
+                         data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">Excel 다운로드
+                    </div>
+                </div>
+            </div>
+
+            <!--본문-->
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right ps-3" for="contentNum">검색 개수</label>
+                    </div>
+
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getOrderList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-0">
+                        <thead id="orderHeader">
+                        <tr>
+                            <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary">No.</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">장부명</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">사용자</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">사용일</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">시간</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">가맹점</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">주문수량</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7">합계금액</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">주문형태</th>
+                        </tr>
+                        </thead>
+                        <tbody id="orderList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+    <div>
+        <table id="ExcelTable" hidden></table>
+    </div>
+
+    <div class="col-md-4">
+        <div class="modal fade" id="AlertModals" tabindex="-2" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header" id='modalHead'><div class="modal-title h5" id='headText'>알림</div></div>
+                    <div class="modal-body" id='modalBody'><p class="mb-0">회사를 선택해주세요</p></div>
+                    <div class="modal-footer" id='modalFoot'>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                id="AlertModalCommit">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

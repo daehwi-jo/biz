@@ -1,0 +1,148 @@
+
+<!--header"-->
+[[template "Login_header" .]]
+<!--header"-->
+
+<style>
+    .mbotm15 { margin-bottom:15px; }
+    .red { color:#f55252; }
+</style>
+<body class="g-sidenav-show   bg-white">
+
+
+<script type="text/javascript">
+    function enterup() {
+        if (window.event.keyCode == 13) {
+            darayo_go();
+        }
+    }
+
+
+//로그인 할때 세션 열면서, 몇몇 정보 받아와야함
+    //ajax요청으로 몇몇 부분의 데이터만 갱신함.
+    function  darayo_go() {
+        //XMLHttpRequest 객체 생성
+        let xhr = new XMLHttpRequest(); //ajax 리퀘스트 요청
+        const lid = document.getElementById("lid").value;
+        const lpwd = document.getElementById("lpwd").value;
+        let spanErr = document.getElementById("span_err")
+        spanErr.innerText="";
+        spanErr.style.display="none";
+
+        if (lid == ""){
+            spanErr.style.display="block";
+            spanErr.innerText="* 아이디를 입력해주세요.";
+            return;
+        }
+
+        if (lpwd == ""){
+            spanErr.style.display="block";
+            spanErr.innerText="* 비밀번호를 입력해주세요.";
+            return;
+        }
+
+        const e_lpwd =  SHA256(lpwd);
+        //요청을 보낼 방식, 주소, 비동기여부 설정
+        xhr.open('POST', '/api/login', true);
+        //HTTP 요청 헤더 설정
+        xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+        xhr.responseType='json';
+        //요청 전송
+        xhr.send("loginId="+lid+"&password="+e_lpwd+"&osTy=bWeb");
+        //통신후 작업
+        xhr.onload = function () {
+            //통신 성공
+            console.log(xhr)
+            if (xhr.status == 200) {
+                  console.log(xhr.response);
+
+                if (xhr.response.resultCode == "00"){ //브라우저가 종료되면 사라지는 세션 스토리지에 데이터 삽입
+                    sessionStorage.setItem('Token', xhr.getResponseHeader("Token"));
+                    sessionStorage.setItem('loginId', xhr.response.resultData.loginId);
+                    sessionStorage.setItem('authorCd', xhr.response.resultData.authorCd); //시스템 권한 일때만 셀렉트 박스 보이게
+                    sessionStorage.setItem('companyId', xhr.response.resultData.companyId);
+                    sessionStorage.setItem('companyNm', xhr.response.resultData.companyNm);
+                    sessionStorage.setItem('userNm', xhr.response.resultData.userNm);
+                    sessionStorage.setItem('userId', xhr.response.resultData.userId);
+
+                    if (xhr.response.resultData.authorCd === "SYS"){ //로그인 태울때 파라미터도 같이 태움 //로그인후 분기
+                        location.href="/"
+                    }else{
+                        location.href="/home";
+                    }
+                }
+                else{
+                    let msg = xhr.response.resultMsg;
+                    if (msg == "가맹점 사용자가 아닙니다."){
+                        alert(msg);
+                        return;
+                    }else{
+                        spanErr.style.display="block";
+                        spanErr.innerText="* " + msg;
+                        return;
+                    }
+                }
+
+            } else {
+                //통신 실패
+
+            }
+        }
+    };
+
+
+
+
+</script>
+
+<section>
+    <div class="page-header section-height-75">
+        <div class="container">
+            <div class="row">
+                <div class="col-xl-4 col-lg-5 col-md-6 d-flex flex-column mx-auto">
+                    <div class="card card-plain mt-8">
+                        <div class="card-header pb-0 text-left bg-transparent">
+
+                            <p class="mb-0">Darayo Management</p>
+                        </div>
+                        <div class="card-body">
+                            <form role="form text-left">
+                                <label>Id</label>
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="lid" placeholder="id" aria-label="loginId" aria-describedby="email-addon">
+                                </div>
+                                <label>Password</label>
+                                <div class="mb-3">
+                                    <input type="password" class="form-control"  id="lpwd"  onkeyup="enterup();" onkeydown="enterup();" placeholder="Password" aria-label="loginPw" aria-describedby="password-addon">
+                                </div>
+                                <div class="mbotm15 red" style="font-size:12px;"  >
+                                    <span id="span_err" style="display:none;"></span>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="rememberMe" checked="">
+                                    <label class="form-check-label" for="rememberMe">ID 저장</label>
+                                </div>
+                                <div class="text-center">
+                                    <button type="button" id="darago" onclick="darayo_go();" class="btn bg-gradient-primary w-100 mt-4 mb-0">로그인</button>
+                                </div>
+                            </form>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="position-absolute top-0 h-100 d-md-block d-none me-n8">
+                        <div class=" bg-cover position-absolute fixed-top ms-auto h-100 z-index-0 ms-n6" style="background-image:url('/public/img/login.png'); width: 600px; height: 700px; "></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+</body>
+
+
+<!--footer"-->
+[[template "Login_footer" .]]
+<!--footer"-->

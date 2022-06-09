@@ -1,0 +1,299 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function () {
+            getParamsData(location.href)
+            alertModal = new AlertModal("알람", "알립니다.")
+            getCompanyMainList(1)
+        });
+
+        function getCompanyMainList(pageNo) {
+            FunLoadingBarStart()
+            const contentNum = getSelectedValue("contentNum")
+
+            RequestGETApi('/api/BizCompanyMng?'
+                + "useYn=" + useYn.value
+                + "&searchKey=" + searchSelect.value
+                + "&searchKeyword=" + searchText.value.replaceAll("-", "")
+                + "&pageSize=" + contentNum
+                + "&pageNo=" + pageNo
+            ).then(function (response) {
+                if (response.resultCode === "00") return response.resultData
+            }).then(function (data) {
+                let html = ""
+                let number = 1 + getContentNumber(pageNo, contentNum)
+                data.companyList.forEach((item) => {
+                    html += "<tr style='height: 60px'>"
+                    html += "   <td class=\"align-middle text-center text-sm\">" + item.companyId + "</td>"
+                    html += "   <td>"
+                    html += "       <div class=\"d-flex px-2 py-1\">"
+                    html += "           <div class=\"d-flex text-xs flex-column justify-content-center\">"
+                    html += "               <a style=\"text-decoration: underline;\" href=/admin/companyInfo?companyId=" + item.companyId + ">" + item.companyNm + "</a>"
+                    html += "           </div>"
+                    html += "       </div>"
+                    html += "   </td>"
+                    html += "   <td class='text-left'>"
+                    html += "       <div class=\"flex-column\">"
+                    html += "           <p class=\"text-xs font-weight-bold mb-0\">" + item.userNm + "</p>"
+                    html += "           <p class=\"text-xs text-secondary mb-0\">" + getHpNo(item.userHp) + "</p>"
+                    html += "       </div>"
+                    html += "   </td>"
+                    html += "   <td class=\"align-middle text-center text-lg\">"
+                    html += ((item.useYn === 'Y')
+                        ? "<span class='badge bg-gradient-faded-success' style='margin: 0;'>사용중</span>"
+                        : "<span class='badge badge-lg bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>")
+                    html += "   </td>"
+                    html += "   <td class=\"align-middle text-center text-lg\">"
+                    html += ((item.useYn === 'Y')
+                        ? ((item.bizYn === 'Y')
+                            ? "<span class='badge badge-lg bg-gradient-faded-info' style='margin: 0;'>비즈사용</span>"
+                            : "<button class='btn btn-sm bg-gradient-primary m-0' onclick='onClickBizUse(\"" + item.companyId + "\")'>비즈사용 전환</button>")
+                        : "-")
+                    html += "   </td>"
+                    html += "   <td class=\"align-middle text-center\">"
+                    html += "       <h6 class=\"mb-0 text-sm\">" + item.bookCnt + " 개</h6>"
+                    html += "   </td>"
+                    html += "   <td class=\"align-middle text-center\">"
+                    html += "       <h6 class=\"mb-0 text-sm\">" + item.userCnt + " 명</h6>"
+                    html += "   </td>"
+                    html += "   <td class=\"align-middle text-center\">"
+                    html += "       <h6 class=\"mb-0 text-sm\">" + item.storeCnt + " 개</h6>"
+                    html += "   </td>"
+                    html += "</tr>"
+                    number++
+                })
+                document.getElementById("listBlink").innerText = (data.totalCount === "0") ? "데이터 없음" : ""
+                document.getElementById("companyList").innerHTML = html
+                getPagination(data.totalCount, pageNo, contentNum, "getCompanyMainList");
+            })
+            FunLoadingBarFinish()
+        }
+
+        function companyAdd(obj) {
+            if ("btn_company_add_m" === obj.id) {
+                if (companyNm.value === "") {
+                    alertModal.setModalContent("알림", "회사이름을 입력해 주세요.")
+                } else if (bizNum.value === "" || bizNum.value.length !== 10) {
+                    alertModal.setModalContent("알림", "사업자번호를 입력해 주세요.")
+                } else if (loginId.value === "") {
+                    alertModal.setModalContent("알림", "로그인 이이디를 입력해 주세요.")
+                } else {
+                    RequestPOSTApi("/api/AddCompany", {
+                        companyNm: document.getElementById("companyNm").value,
+                        bizNum: document.getElementById("bizNum").value,
+                        loginId: document.getElementById("loginId").value,
+                        addedBy: sessionStorage.getItem("userNm")
+                    }).then(function (response) {
+                        alertModal.setModalContent("알림", (response.resultCode === "00") ? "추가되었습니다" : (response.resultCode === "99") ? "올바른 담당자 정보를 입력하세요.\n(입력하신 정보의 담당자가 사용자로 있지 않습니다.)" : "다시 시도해주세요")
+                        getCompanyMainList(1)
+                    })
+                }
+            }
+            document.getElementById("companyNm").value = ""
+            document.getElementById("bizNum").value = ""
+            document.getElementById("loginId").value = ""
+        }
+
+        function maxLength10(obj) {
+            if (obj.value.length > 10) {
+                obj.value = obj.value.slice(0, 10)
+            }
+        }
+
+        function onClickBizUse(id) {
+            RequestPOSTApi("/api/admin/company/biz", {
+                companyId: id,
+                addedBy: sessionStorage.getItem("userNm")
+            }).then(function (response) {
+                alertModal.setModalContent("알림", (response.resultCode === "00") ? "비즈사용으로 전환하였습니다." : response.resultMsg || response.message)
+                getCompanyMainList(1)
+                $('#AlertModal').modal('show')
+            })
+        }
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">기업관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="row mt-2 mb-2">
+            <h5>기업관리</h5>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="useYn" onchange='getCompanyMainList(1)'>
+                                <option value="" selected>전체</option>
+                                <option value="Y">사용</option>
+                                <option value="N">미사용</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="searchSelect" onchange='getCompanyMainList(1)'>
+                                <option value="companyNm" selected>기업명</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="searchText"
+                                   onkeyup='searchEnterKey(getCompanyMainList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col text-right me-3">
+                    <div class="row">
+                        <div class="col form-group">
+                            <div class=" input-group input-group-alternative mb-4">
+                                <button type="button" class=" btn bg-gradient-primary" id="searchButton"
+                                        onclick="getCompanyMainList(1)">조회
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <button type="button" class="btn bg-gradient-primary " id="btn_company_add"
+                                    data-bs-toggle="modal" data-bs-target="#modal_company_add">기업 추가
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                    </div>
+
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getCompanyMainList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                ID
+                            </th>
+                            <th class="text-left text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                기업명
+                            </th>
+                            <th class="text-left text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                담당자
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">비즈사용여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">장부수</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">장부원수</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">가맹점수</th>
+                        </tr>
+                        </thead>
+                        <tbody id="companyList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+    <!--수정확인 모달-->
+    <div class="col-md-4">
+        <div class="modal fade" id="modal_company_add" tabindex="-2" role="dialog">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">기업 추가</h5>
+                    </div>
+                    <div class="modal-body">
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-4 mt-2 h6">기업이름</div>
+                            <div class="col-8">
+                                <input type="text" id="companyNm" class="form-control"/>
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-4 mt-2 h6">사업자 등록번호</div>
+                            <div class="col-8">
+                                <input type="number" maxlength="10" id="bizNum" class="form-control"
+                                       onkeyup="maxLength10(this)"/>
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-4 mt-2 h6">아이디(이메일)</div>
+                            <div class="col-8">
+                                <input type="text" id="loginId" class="form-control"/>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary"
+                                data-bs-dismiss="modal" id="btn_company_cancel_m"
+                                onclick="companyAdd(this)">취소
+                        </button>
+                        <button type="button" class="btn bg-gradient-primary" id="btn_company_add_m"
+                                data-bs-toggle="modal" data-bs-dismiss="modal" data-bs-target="#AlertModal"
+                                onclick="companyAdd(this)">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

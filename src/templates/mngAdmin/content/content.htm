@@ -1,0 +1,236 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            getList(1)
+        })
+
+        function searchEnter(func) {
+            if (window.event.keyCode === 13) {
+                func(1)
+            }
+        }
+
+        function linkEnter() {
+            if (window.event.keyCode === 13) {
+                commit.click()
+            }
+        }
+
+        function getList(pageNo) {
+            const pageSize = document.getElementById("pageSize").value
+            fetch('/api/contents/content?' +
+                'search=' + search.value +
+                '&useYn=' + ((searchUseYn.checked) ? "Y" : "") +
+                '&pageSize=' + pageSize +
+                '&pageNo=' + pageNo
+            ).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData : null
+                let html = ""
+                if (!!data) {
+                    const list = data.contentList
+
+                    for (const element of list) {
+                        html += "<tr>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase\">" + element.contentId + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.type + "</th>" +
+                            "<th class=\"text-left text-secondary text-xs font-weight-bolder opacity-7\">" + element.siteName + "</th>" +
+                            "<th class=\"text-left text-secondary text-xs font-weight-bolder opacity-7\"><a style='text-decoration: underline' href='/admin/contentInfo?contentId=" + element.contentId + "'>" + element.title + "</a></th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + ((element.useYn !== 'Y')
+                                ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                                : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>") + "</th>" +
+                            "<th class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" + element.startDate + " ~ " + element.endDate + "</th>" +
+                            "</tr>"
+                    }
+
+                    contentList.innerHTML = html
+                    getPagination(data.totalCount, pageNo, pageSize, "getList")
+                }
+            })
+        }
+
+        async function setContent(bln) {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            const linkString = link.value
+            const regex = /(http|https):\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?/
+
+            if (bln) {
+                if (linkString === "") {
+                    alertModal.setModalContent("알림", "링크를 입력해주세요.")
+                    return
+                } else if (!regex.test(linkString)) {
+                    alertModal.setModalContent("알림", "잘못된 링크가 입력되었습니다, 다시 입력해주세요.")
+                } else {
+                    const link = document.getElementById("link").value
+                    const opts = {
+                        method: 'POST', body: JSON.stringify({
+                            url: link,
+                        }), headers: {"Content-Type": "application/json"}
+                    }
+                    const urlResponse = await fetch("/api/contents/AddContent", opts).then(function (data){
+                        return data.json()
+                    })
+
+                    const url = urlResponse.resultData.url
+
+                    const opts2 = {
+                        method: 'POST', body: JSON.stringify({
+                            url: link,
+                        }), headers: {"Content-Type": "application/json"}
+                    }
+
+                    const res = await fetch(url, opts2).then(function (data){
+                        return data.json()
+                    })
+
+                    if (res.success) {
+                        location.href = '/admin/contentInfo?contentId=' + res.content_id
+                    } else {
+                        alertModal.setModalContent("알림", "오류가 발생했습니다 다시 시도해주세요.")
+                    }
+                }
+            }
+
+            link.value = ""
+        }
+
+
+    </script>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">컨텐츠 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>컨텐츠 관리</h5>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+
+                <div class="col-md-4">
+                    <div class=" form-group">
+                        <label class="mb-0" for="search">제목</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="search"
+                                   onkeyup='searchEnter(getList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                            <button type="button" class="btn bg-gradient-primary mb-0 ps-4 pe-4" id="btn_search"
+                                    onclick="getList(1)">조회
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col text-right">
+                    <button class="btn bg-gradient-primary mt-3" id="btn_create" data-bs-toggle="modal"
+                            data-bs-target="#createModal">컨텐츠 등록
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+
+                    <div class="col-2">
+                        <label class="mb-0 " for="pageSize">검색 개수</label>
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="pageSize" onchange="">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+
+
+                    <div class="col-2 mt-3 ms-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="searchUseYn" onclick="getList(1)">
+                            <label class="custom-control-label mt-1" for="searchUseYn">사용중만 표시</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 text-uppercase">
+                                Id.
+                            </th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">구분</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">사이트명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">제목</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">게시기간</th>
+                        </tr>
+                        </thead>
+                        <tbody id="contentList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="createModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="modal-title h5">컨텐츠 등록</div>
+                </div>
+                <div class="modal-body">
+                    <div class="row p-3">
+                        <label class="mb-0 mt-0 ps-0" for="link">링크</label>
+                        <input class="form-control text-sm" placeholder="링크입력" id="link"
+                               onkeyup="linkEnter()"/>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn bg-gradient-secondary" onclick="setContent(false)"
+                            data-bs-dismiss="modal">취소
+                    </button>
+                    <button type="button" class="btn bg-gradient-primary" onclick='setContent(true)' id="commit"
+                            data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">등록
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

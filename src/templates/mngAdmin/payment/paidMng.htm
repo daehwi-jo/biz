@@ -1,0 +1,220 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+<script type="text/javascript">
+  window.addEventListener("load", function() {
+      getList(1);
+  });
+
+  function  getList(pageNo) {
+      let pageSize=20;
+
+      let sendData = {
+          pageNo:pageNo,
+          pageSize:pageSize,
+          restNm:document.getElementById("searchText").value,
+      };
+      var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+      fetch('/api/payment/GetPaidMngList', opts).then(function(response) {
+          return response.json();
+      }).then(function(res) {
+         // console.log(res)
+          let html="";
+
+          if (res.resultList.length > 0) {
+              res.resultList.forEach(function(v) {
+
+                  html += '<tr>';
+                  html += '     <td class="align-middle text-center">';
+                  html += '	        <span class="text-secondary text-xs ">'+v.restId+'</span>';
+                  html += '     </td>';
+                  html += '     <td class="align-middle text-left">';
+                  html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.restNm+'</span>';
+                  html += '     </td>';
+                  html += '     <td class="align-middle text-center">';
+                  html += '	        <span class="text-secondary text-xs ">'+v.paymentDt+'</span>';
+                  html += '     </td>';
+                  html += '     <td class="align-middle text-right">';
+                  html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.creditAmt)+' 원</span>';
+                  html += '     </td>';
+                  html += '     <td class="align-middle text-right">';
+                  html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.restPayAmt)+' 원</span>';
+                  html += '     </td>';
+                  html += '     <td class="align-middle text-right">';
+                  html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.totFee)+' 원</span>';
+                  html += '     </td>';
+                  html += '     <td class="align-middle text-center">';
+                  if (v.payProxyCd !=='0000'){
+                      html += "     <div type='button' class='btn btn-sm bg-gradient-primary' style='margin-bottom: 0rem' onclick='setSubmallReg(\""+v.restId+"\");'>등록</div>"
+                  }
+                  html += '     </td>';
+                  html += '</tr>';
+
+              });
+          }
+          document.getElementById("resultList").innerHTML = html;
+          getPagination(res.resultCnt,pageNo,pageSize,"getList");
+      });
+  };
+
+
+  function  setSubmallReg(restId) {
+
+      if (sessionStorage.getItem('loginId')==null){
+          return;
+      }
+      FunLoadingBarStart();
+
+      let sendData = {
+          restId:restId,
+      };
+      var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+      fetch('/api/payment/SetStoreReg', opts).then(function(response) {
+          return response.json();
+      }).then(function(res) {
+          // console.log(res)
+          if (res.resultCode == "00"){
+              location.reload();
+          }else if (res.resultCode == "99"){
+              FunLoadingBarFinish();
+              alert(res.resultMsg);
+              return;
+          }else{
+              FunLoadingBarFinish();
+              alert("통신 오류");
+              return;
+          }
+      });
+  };
+
+
+  function  setMakeFee() {
+
+      if (sessionStorage.getItem('loginId')==null){
+          return;
+      }
+
+
+
+      FunLoadingBarStart();
+
+      let sendData = {
+
+      };
+      var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+      fetch('/api/payment/SetMakeFee', opts).then(function(response) {
+          return response.json();
+      }).then(function(res) {
+          // console.log(res)
+          if (res.resultCode == "00"){
+              location.reload();
+          }else if (res.resultCode == "99"){
+              FunLoadingBarFinish();
+              alert(res.resultMsg);
+              return;
+          }else{
+              FunLoadingBarFinish();
+              alert("통신 오류");
+              return;
+          }
+      });
+  };
+
+</script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="route" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder"><a class="opacity-5 text-dark" href="javascript:;">정산대상</a></li>
+        </ol>
+    </nav>
+
+    <div class="card-header-new pb-0" id="SearchBar">
+        <div class="row">
+            <h5 class="mt-2">정산대상</h5>
+            <div class="col-md-2">
+                <div class="form-group">
+                    <div class="input-group input-group-alternative ">
+                        <select class="form-control">
+                            <option value="restNm">가맹점명</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="form-group">
+                    <div class="input-group input-group-alternative ">
+                        <input class="form-control" placeholder="Search" type="text" id="searchText">
+                        <span class="input-group-text"><i class="ni ni-zoom-split-in"></i></span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="form-group">
+                    <div class="input-group input-group-alternative ">
+                        <button type="button" class="btn bg-gradient-primary" id="searchButton" onclick="getList(1);">조회</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="card mb-4">
+
+                    <div class="card-header pb-0" id="allCount">
+                        <div class="row ms-3 mt-3">
+
+                            <div class="col-md-2 me-3 mt-2">
+                                <div class="bg-gradient-danger btn" type="button"  onclick="setMakeFee();">수수료 등록</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-body px-0 pt-0 pb-2">
+                        <div class="table-responsive p-0">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">가맹점ID</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">가맹점명</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">결제일</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">결제금액</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">지급예정금액</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">수수료</th>
+                                    <th class="text-center text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">SUB몰</th>
+                                </tr>
+                                </thead>
+                                <tbody id="resultList">
+
+
+                                </tbody>
+                            </table>
+                        </div>
+                        <nav id="pageNav"></nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

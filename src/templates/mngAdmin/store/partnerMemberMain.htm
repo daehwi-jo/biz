@@ -1,0 +1,324 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        window.addEventListener("load", function () {
+            alertModal = new AlertModal("알림","알립니다.")
+            getParamsData(location.href)
+            getList(1)
+        });
+
+        async function getList(pageNo) {
+            FunLoadingBarStart()
+            const pageSize = document.getElementById("pageSize").value
+            fetch("/api/admin/partnerMember"
+                + "?partnerMemberYn=" + partnerMemberYn.value
+                + "&restNm=" + restNm.value
+                + "&pageSize=" + pageSize
+                + "&pageNo=" + pageNo).then(async function (response) {
+                return response.json();
+            }).then(function (json) {
+                const data = (json.resultCode === "00") ? json.resultData : null
+                const yErrCd = (code) => {
+                    const errCdString = {
+                        "0000": "데이터 수집 완료"
+                        , "0001": "DB관련 에러"
+                        , "0002": "HTTP 통신에러"
+                        , "0003": "HTTP 응답값 에러"
+                        , "0004": "파싱에러"
+                        , "0005": "로그인 에러"
+                        , "0006": "그룹아이디 조회 에러"
+                        , "0007": "Data Format 에러"
+                        , "0008": "Data 없음"
+                        , "0009": "Data 있음"
+                        , "0010": "Data 동일"
+                        , "0100": "승인건수 에러"
+                        , "0101": "승인금액 에러"
+                        , "0102": "매입건수 에러"
+                        , "0103": "매입금액 에러"
+                        , "0104": "입금건수 에러"
+                        , "0105": "입금금액 에러"
+                        , "null": "데이터 없음"
+                    }
+                    const str = errCdString[code]
+                    return (code === "0000") ? "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>" : ((code === "null")
+                        ? "<span class=\"badge bg-dark mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>"
+                        : "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>")
+                }
+                const hErrCd = (code) => {
+                    const errCdString = {
+                        "0000" : "데이터 수집 완료"
+                        ,"0001" : "DB관련 에러"
+                        ,"0002" : "HTTP 통신에러"
+                        ,"0003" : "HTTP 응답값 에러"
+                        ,"0004" : "파싱에러"
+                        ,"0005" : "ACCESS COOKIES 에러"
+                        ,"0006" : "로그인 에러"
+                        ,"0007" : "CASH ACCESS COOKIES 에러"
+                        ,"0008" : "token 에러"
+                        ,"0009" : "CASH SSO 에러"
+                        ,"0010" : "그룹아이디 조회 에러"
+                        ,"0011" : "Data 조회 오류"
+                        ,"0012" : "Data 저장 오류"
+                        ,"0013" : "Data Format 에러"
+                        ,"0014" : "Data 없음"
+                        ,"0015" : "Data 있음"
+                        ,"0016" : "Data 동일"
+                        ,"0017" : "홈텍스 조회응답 오류"
+                        ,"null": "데이터 없음"
+                    }
+                    const str = errCdString[code]
+                    return (code === "0000") ? "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>" : ((code === "null")
+                        ? "<span class=\"badge bg-dark mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>"
+                        : "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">" + str + "</span>")
+                }
+                const templateCd = {
+                    "cash_003": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입3번 오류</span>"
+                    , "cash_004": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입4번 오류</span>"
+                    , "cash_101": "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">주간 분석성공</span>"
+                    , "cash_201": "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">월간 분석성공</span>"
+                    , "cash_013": "<span class=\"badge bg-success mt-1\" style=\"font-size: 0.8rem !important;\">어제 분석성공</span>"
+                    , "cash_014": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">어제분석 1차실패</span>"
+                    , "cash_015": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">어제분석 2차실패</span>"
+                    , "cash_016": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">어제분석 주말실패</span>"
+                    , "cash_901": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입상태안내 미인증</span>"
+                    , "cash_902": "<span class=\"badge bg-danger mt-1\" style=\"font-size: 0.8rem !important;\">가입상태안내 인증</span>"
+                    , "null": "<span class=\"badge bg-dark mt-1\" style=\"font-size: 0.8rem !important;\">데이터 없음</span>"
+                }
+                const partnerMemberCheck = {
+                    "Y": "<span class=\"badge bg-gradient-primary mt-1\" style=\"font-size: 0.8rem !important;\">파트너멤버</span>"
+                    ,"N": "<span class=\"badge bg-gradient-secondary mt-1\" style=\"font-size: 0.8rem !important;\">해지</span>"
+                }
+                if (!!data) {
+                    let html = ""
+                    let listBlink = ""
+                    if (data.partnerMemberList.length !== 0) {
+                        for (const element of data.partnerMemberList) {
+                            html += " <tr><td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\"><a style=\"text-decoration: underline;\" href='/admin/partnerMemberInfo?restId="+element.restId+"'>"+element.restNm+"</a></td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+partnerMemberCheck[element.partnerMemberUseYn]+"</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+element.endDate+"</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">" +
+                                    "<button class=\"bg-gradient-secondary btn btn-sm mb-0\" id='modMenbership' data-bs-target='#modalModPartnerMember' data-bs-toggle='modal' onclick='getPartnerMemberData(\""+element.restId+"\")'>" +
+                                        "<i class=\"ms-1 fas fa-pencil-alt text-dark me-2\">종료일 수정</i>" +
+                                    "</button></td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+((element.yBsDt === "null") ? "-"
+                                    : element.yBsDt)+"</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+yErrCd(element.yErrCd)+"</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+((element.hBsDt === "null") ? "-"
+                                    : element.hBsDt)+"</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+hErrCd(element.hErrCd)+"</td>" +
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+((element.sendDt === "null") ? "-"
+                                    : element.sendDt)+"</td>"+
+                                "<td class=\"text-center text-secondary text-xs font-weight-bolder opacity-7\">"+templateCd[element.templateCode]+"</td></tr>"
+                        }
+                        getPagination(data.totalCount, pageNo, pageSize, "getList")
+                    } else {
+                        listBlink = "데이터 없음"
+                    }
+                    document.getElementById("partnerMemberList").innerHTML = html
+                    document.getElementById("listBlink").innerText = listBlink
+                }
+                FunLoadingBarFinish()
+            })
+        }
+
+        function getPartnerMemberData(restId){
+            setParams("restId",restId)
+            fetch("/api/admin/partnerMemberDate?restId="+restId).then(function (response){
+                return response.json()
+            }).then(function (json){
+                const data = (json.resultCode === "00") ? json.resultData : null
+                if (!!data){
+                    modalNextPayDate.value = data.nextPayDate
+                    modalStartDate.value = data.startDate
+                    modalEndDate.value = data.endDate
+                }
+            })
+        }
+
+        function dateChange(obj){
+            modalNextPayDate.value = obj.value
+        }
+
+        function modPartnerMemberData(bln){
+            alertModal.setModalContent("알림","잠시만 기다려주세요.")
+            if (modalStartDate.value > modalEndDate.value){
+                alertModal.setModalContent("알림","종료일이 시작일과 같거나 적습니다, 종료일을 다시 선택해주세요.")
+                return
+            } else if (bln){
+                const opts = {
+                    method: "PUT",
+                    headers : {'Content-Type': 'application/json;', 'Accept': '*/*'},
+                    body: JSON.stringify({
+                        restId : getParams("restId")
+                        ,endDate : modalEndDate.value
+                    })
+                }
+                fetch("/api/admin/partnerMemberDate",opts).then(function (response){
+                    return response.json()
+                }).then(function (json){
+                    alertModal.setModalContent("알림",(json.resultCode === "00")?"변경되었습니다.":json.resultMsg)
+                    getList(1)
+                })
+            }
+            modalNextPayDate.value = ""
+            modalStartDate.value = ""
+            modalEndDate.value = ""
+            delParams("restId")
+        }
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">파트너 멤버 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="row mt-2 mb-2">
+            <h5>파트너멤버 관리</h5>
+        </div>
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <label class="mb-0" for="partnerMemberYn">파트너멤버 여부</label>
+                        <select class="form-control" id="partnerMemberYn" onchange="getList(1)">
+                            <option value="" >전체</option>
+                            <option value="Y" selected>파트너멤버</option>
+                            <option value="N">해지</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label class="mb-0" for="restNm">가맹점 명</label>
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search" type="text" id="restNm"
+                                   onkeyup='searchEnterKey(getList)'>
+                            <span class=" input-group-text">
+                                <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                            <button type="button" class=" btn bg-gradient-primary mb-0" id="searchButton"
+                                    onclick="getList(1)">조회
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="pageSize">검색 개수</label>
+                    </div>
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="pageSize"
+                                onchange="getList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead id="storeHeader">
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">가맹점명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">파트너멤버 여부</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">종료일</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">비고</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">여신 수집 일자</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">여신 수집 결과</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">홈택스 수집 일자</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">홈택스 수집 결과</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">알림톡 전송 날짜</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7">알림톡 결과</th>
+                        </tr>
+                        </thead>
+                        <tbody id="partnerMemberList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalModPartnerMember" tabindex="-2" role="dialog" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>파트너멤버 기간 수정</h5>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row ps-3 pe-3">
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="mb-0" for="modalStartDate">시작일</label>
+                                <input class="form-control text-dark disableGray" type="date" id="modalStartDate" disabled>
+                            </div>
+                        </div>
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="mb-0" for="modalEndDate">종료일</label>
+                                <input class="form-control text-dark disableGray" type="date" id="modalEndDate" onchange="dateChange(this)">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row ps-3 pe-3">
+                        <div class="col">
+
+                        </div>
+                        <div class="col">
+                            <div class="form-group">
+                                <label class="mb-0" for="modalNextPayDate">다음 결제일</label>
+                                <input class="form-control text-dark disableGray" type="date" id="modalNextPayDate" disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn bg-gradient-primary" data-bs-dismiss="modal" data-bs-target="#AlertModal" data-bs-toggle="modal" onclick="modPartnerMemberData(true)">수정하기</button>
+                    <button class="btn bg-gradient-secondary" data-bs-dismiss="modal" onclick="modPartnerMemberData(false)">닫기</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

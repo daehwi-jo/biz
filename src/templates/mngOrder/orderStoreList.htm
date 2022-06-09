@@ -1,0 +1,273 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+        document.addEventListener("DOMContentLoaded", function () {
+            if (sessionStorage.getItem("companyId") === "") {
+                document.getElementById("alertModalBtn").click()
+            }
+            getGrpIdSelectList()
+        });
+
+        function getList(pageNo) {
+            const contentNum = document.getElementById("contentNum").value;
+            const userId = sessionStorage.getItem("userId")
+
+            const sendData = {
+                pageNo: pageNo,
+                pageSize: contentNum,
+                companyId: sessionStorage.getItem("companyId"),
+                authorCd: sessionStorage.getItem("authorCd"),
+                searchGrpId: document.getElementById("searchGrpIdSelect").value,
+                searchRestNm: document.getElementById("searchText").value,
+                startDate: startDate.value.replaceAll("-",""),
+                endDate: endDate.value.replaceAll("-","")
+            };
+            const opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/StoreInfoLookUp', opts).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                let number = 1 + getContentNumber(pageNo, contentNum)
+                let html = ""
+                let noData = ""
+
+                const cases = {
+                    0: "승인대기",
+                    1: "승인완료",
+                    2: "승인거절",
+                    3: "탈퇴",
+                }
+                totalCount.textContent = res.resultCnt
+
+                if (res.resultCnt > 0) {
+                    res.resultList.forEach(function (v) {
+                        html += "<tr>"
+                        html += "   <td class=\"align-middle text-center text-sm\">" + number + "</td>"
+                        html += "   <td>"
+                        html += "       <h6 class=\"mb-0 text-center text-sm\">" + v.restNm + "</h6>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs text-center font-weight-bold mb-0\">" + v.grpNm + "</p>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs text-center font-weight-bold mb-0\">" + v.orderCnt + " 건" + "</p>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(v.orderAmt) + " 원" + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(v.prepaidAmt) + " 원" + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-right\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(v.nopayAmt) + " 원" + "</h6>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle text-center me-3\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + v.orderDate + "</h6>"
+                        html += "   </td>"
+
+                        if (v.payTy == "0") {
+                            html += "   <td class=\"align-middle text-center\">"
+                            html += "       <div type='button' class=\" btn btn-sm bg-gradient-info \" style='margin-bottom: 0rem;' onclick='goCharge(\"" + v.grpId + "\",\"" + v.restId + "\",\"" + userId + "\")'>충전</div>"
+                            html += "   </td>"
+                        } else if (v.payTy == "1") {
+                            html += "   <td class=\"align-middle text-center\">"
+                            html += "       <div type='button' class=\" btn btn-sm bg-gradient-success \" style='margin-bottom: 0rem;' onclick='goCalculate(\"" + v.grpId + "\",\"" + v.restId + "\",\"" + userId + "\")'>정산</div>"
+                            html += "   </td>"
+                        }
+
+                        html += "   <td class=\"align-middle text-center me-3\">"
+                        html += "       <h6 class=\"mb-0 text-sm\">" + cases[v.reqStat] + "</h6>"
+                        html += "   </td>"
+                        html += "</tr>"
+                        number++;
+                    });
+                } else {
+                    noData = "데이터 없음"
+                }
+                document.getElementById("orderStoreList").innerHTML = html
+                document.getElementById("listBlink").innerText = noData
+                getPagination(res.resultCnt, pageNo, contentNum, "getList");
+                FunLoadingBarFinish()
+            });
+        };
+
+        function goCharge(grpId, restId, userId) {
+            location.href = "/order/payCharge?grpId=" + grpId + "&restId=" + restId + "&userId=" + userId + "&searchTy=1";
+        }
+
+        function goCalculate(grpId, restId, userId) {
+            location.href = "/order/payCalculate?grpId=" + grpId + "&restId=" + restId + "&userId=" + userId + "&searchTy=2";
+        }
+
+        async function getGrpIdSelectList() {
+            const obj = await RequestGETApi("/api/GetCompanyBookList?companyId=" + sessionStorage.getItem("companyId") + "&userId=" + ((sessionStorage.getItem("authorCd") === "BM") ? sessionStorage.getItem("userId") : ""))
+            const data = (obj.resultCode === "00") ? obj.resultData.bookList : null
+            const select = window.document.getElementById('searchGrpIdSelect')
+
+            document.getElementById("startDate").value = getDate(0, 1)
+            document.getElementById("endDate").value = getDate(0, 0)
+            document.getElementById("searchText").value = ""
+
+            if (data.length === 0) {
+                const option = document.createElement('option')
+                option.textContent = "장부없음"
+                option.selected = true
+                select.append(option)
+            } else {
+                data.forEach(function (element) {
+                    const option = document.createElement('option')
+                    option.value = element.value
+                    option.textContent = element.label
+                    select.append(option)
+                })
+                await getList(1)
+            }
+        }
+
+    </script>
+
+    <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModals" style="display: none"></button>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">주문관리</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">가맹점 조회</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>가맹점 조회</h5>
+        </div>
+
+        <!--검색 바-->
+        <div class="row card">
+            <div class="row ms-3 mt-3">
+                <h6>검색</h6>
+
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchGrpIdSelect" onchange='getList(1);'>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="startDate">
+                </div>
+
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date" value="" id="endDate">
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" placeholder="가맹점 검색" type="text" id="searchText">
+                            <span class="input-group-text"><i class="ni ni-zoom-split-in"></i></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <div class="input-group input-group-alternative mb-3">
+                        <button type="button" class="btn bg-gradient-primary" id="btn_search" onclick="getList(1);">조회
+                        </button>
+                        <button type="button" class="btn bg-gradient-secondary" id="btn_reset"
+                                onclick="getGrpIdSelectList();">초기화
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="row card mt-4">
+
+
+            <!--전체 건수 및 엑셀-->
+            <div class="card-header pb-0">
+                <div class="row ms-3 mt-3">
+                    <div class="col-md-1 mt-2"><p class="text-bold">전체 건수 :</p></div>
+                    <div class="col-md-1 mt-2"><p class="text-bold" id="totalCount"></p></div>
+                </div>
+            </div>
+
+            <!--본문-->
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                    </div>
+
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-1">
+                        <thead id="orderStoreHeader">
+                        <tr>
+                            <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary ">No.</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">가맹점 이름</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">장부 이름</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">사용건</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7">사용금액</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7">충전 잔액</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7">미결제 금액</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">최근사용일</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7"></th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">연결상태</th>
+                        </tr>
+                        </thead>
+                        <tbody id="orderStoreList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+
+                <!--페이징-->
+                <nav id="pageNav"></nav>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="modal fade" id="AlertModals" tabindex="-2" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header" id='modalHead'><div class="modal-title h5" id='headText'>알림</div></div>
+                    <div class="modal-body" id='modalBody'><p class="mb-0">회사를 선택해주세요</p></div>
+                    <div class="modal-footer" id='modalFoot'>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                id="AlertModalCommit">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

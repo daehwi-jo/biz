@@ -1,0 +1,249 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script src="/public/js/utils/xlsx.js"></script>
+    <script type="text/javascript">
+
+        window.addEventListener("load", function() {
+            document.getElementById("startDate").value = getDate(0, 1)
+            document.getElementById("endDate").value = getDate(0, 0)
+            getList(1)
+        })
+
+
+        function  getList(pageNo) {
+            let pageSize=20;
+
+            let sendData = {
+                pageNo:pageNo,
+                pageSize:pageSize,
+                endDate: $("#endDate").val(),
+                startDate: $("#startDate").val(),
+                searchRestNm: $("#searchRestNm").val(),
+                searchUserNm: $("#searchUserNm").val(),
+                searchGrpNm: $("#searchGrpNm").val(),
+                searchStat: $("#searchStat").val(),
+            };
+
+            FunLoadingBarStart()
+
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetPaymentList', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                 console.log(res)
+                let html="";
+                if (res.resultData.totalCount> 0) {
+                    res.resultData.resultList.forEach(function(v) {
+
+                        html += '<tr>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.paymentDt+'</a></span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs">'+v.grpNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.userNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-left">';
+                        html += '	        <span class="text-secondary text-xs ">'+v.restNm+'</span>';
+                        html += '     </td>';
+                        let payInfoNm="";
+                        if (v.payInfo=="0"){
+                            payInfoNm='계좌이체';
+                        }else if (v.payInfo=="1"){
+                            payInfoNm='카드';
+                        }else if (v.payInfo=="2"){
+                            payInfoNm='관리자계좌이체';
+                        }else if (v.payInfo=="3"){
+                            payInfoNm='매장';
+                        }
+
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs ">'+payInfoNm+'</span>';
+                        html += '     </td>';
+
+                        html += '     <td class="align-middle text-right" style="background-color:#d9d9d9;color:#0d0626;">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+Format_comma2(v.amt)+' 원</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.fnname+'</span>';
+                        html += '     </td>';
+
+                        let paymentTyNm='';
+
+                        if (v.paymentTy=="0"){
+                            paymentTyNm='선불';
+                        }else if (v.paymentTy=="1"){
+                            paymentTyNm='선불취소';
+                        }else if (v.paymentTy=="3"){
+                            paymentTyNm='후불';
+                        }else if (v.paymentTy=="4"){
+                            paymentTyNm='후불취소';
+                        }
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+paymentTyNm+'</span>';
+                        html += '     </td>';
+                        html += '     <td class="align-middle text-center">';
+                        html += '	        <span class="text-secondary text-xs font-weight-bold">'+v.accStDay+'</span>';
+                        html += '     </td>';
+                        html += '</tr>';
+
+
+                    });
+                }
+                document.getElementById("resultList").innerHTML = html;
+                getPagination(res.resultData.totalCount,pageNo,pageSize,"getList");
+
+            });
+
+            FunLoadingBarFinish();
+        };
+
+        function enter_getList(){
+            if(event.keyCode == 13){
+                getList(1)
+            }
+        }
+
+
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">결제관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="card-header-new pb-0 mb-2" id="SearchBar">
+            <div class="row">
+                <h5 class="mt-2">결제관리</h5>
+                <h6>검색</h6>
+
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" onchange="getList(1)" id="searchStat">
+                                <option value="">상태</option>
+                                <option style="color:green;" value="0" >선불</option>
+                                <option style="color:red;" value="1">선불취소</option>
+                                <option style="color:green;" value="3" >후불</option>
+                                <option style="color:red;" value="4">선불취소</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            가맹점명:
+                            </span>
+                            <input class=" form-control"  type="text" id="searchRestNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+
+
+                </div>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" >
+                                <option value="">결제일</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            장부명:
+                            </span>
+                            <input class=" form-control"  type="text" id="searchGrpNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-group ">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" type="date"  id="startDate" onchange="getList(1)">
+                        </div>
+                    </div>
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+
+                            <span class=" input-group-text">
+                            사용자명:
+                            </span>
+                            <input class=" form-control"  type="text" id="searchUserNm" onkeydown="JavaScript:enter_getList();">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group col-md-2">
+                    <input class="form-control" type="date"  id="endDate" onchange="getList(1)">
+                </div>
+
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" onclick="getList(1)">조회</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+
+
+        <!--본문 표 테이블-->
+        <div class="row card col-12">
+            <div class="card-body px-0 pt-0 pb-2">
+                <br>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead id="storeHeader">
+                        <tr>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">결제일</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7  text-uppercase">장부명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">사용자명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">가맹점명</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">결제타입</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">금액</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">카드사</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">타입</th>
+                            <th class="text-center text-secondary text-xs font-weight-bolder opacity-7 ">정산일자</th>
+                        </tr>
+                        </thead>
+                        <tbody id="resultList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

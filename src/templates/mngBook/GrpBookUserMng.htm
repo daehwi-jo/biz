@@ -1,0 +1,783 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        window.addEventListener("load", function () {
+            getParamsData(location.href)
+            alertModal = new AlertModal("알림", "수정되었습니다.")
+
+            if (sessionStorage.getItem("companyId") === "") {
+                document.getElementById('alertModalBtn').click()
+            }
+            getGrpIdSelectList()
+
+            textChangeEventListener()
+            clickEventListener()
+
+            $("#upload_file").change(function(e){
+
+                e.preventDefault();
+                var form = $('#form')[0];
+                var formData = new FormData(form);
+
+                //console.log(formData);
+
+                $.ajax({
+                    type: "POST",
+                    enctype: 'multipart/form-data',
+                    url: '/api/ParsingExcel',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    cache: false,
+                    timeout: 600000,
+                    success: function (data) {
+                        // 전송 후 성공 시 실행 코드
+                        //console.log(data.resultData.length);
+                        //console.log(data.resultData[0]);
+
+                        for (let i=0; i<data.resultCnt; i++){
+                            var excelData = data.resultData[i].split(",");
+                            var name = excelData[0]
+                            var phone = excelData[1].replaceAll("-", "")
+
+                            if (phone.substr(0,2) == '10'){
+                                phone = '0' + phone;
+                            }
+
+                            let htmlString = "<tr>"
+                            htmlString += "<td class=\"text-center\" hidden>" + getSelectedValue("modalSelect") + "</td>"
+                            htmlString += "<td class=\"text-center\">" + getSelectedText("modalSelect") + "</td>"
+                            htmlString += "<td class=\"text-center\">" + name + "</td>"
+                            htmlString += "<td class=\"text-center\">" + phone + "</td>"
+                            htmlString += "<td class=\"text-center\" ><div class='btn-sm btn bg-gradient-primary mb-0' onclick='onClickRowDel(this)'>삭제</div></td></tr>"
+                            document.getElementById("modalTableBody").innerHTML += htmlString
+                        }
+                    },
+                });
+            });
+
+        });
+
+        function addUserTemp(flag){
+
+            document.getElementById("userDataFile").style.display = "none";
+            document.getElementById("userDataInput").style.display = "none";
+
+            if (flag==1){
+                document.getElementById("userDataInput").style.display = "block";
+            }else{
+                document.getElementById("userDataFile").style.display = "block";
+            }
+        }
+
+        async function getGrpIdSelectList() {
+            const obj = await RequestGETApi("/api/GetCompanyBookList?companyId=" + sessionStorage.getItem("companyId") + "&userId=" + ((sessionStorage.getItem("authorCd") === "BM") ? sessionStorage.getItem("userId") : ""))
+            const data = (obj.resultCode === "00") ? obj.resultData.bookList : null
+            const select = window.document.getElementById('searchGrpIdSelect')
+            const grpId = getParams('searchGrpId')
+
+
+            if (data.length === 0) {
+                const option = document.createElement('option')
+                option.textContent = "장부없음"
+                option.selected = true
+                select.append(option)
+            } else {
+                data.forEach(function (element) {
+                    const option = document.createElement('option')
+                    option.value = element.value
+                    option.textContent = element.label
+                    select.append(option)
+                })
+
+                if (grpId === "") {
+                    setParams('searchGrpId', data[0].value)
+                } else {
+                    getSelectedIndexV("searchGrpIdSelect", grpId)
+                }
+
+                await getGrpBookUserMngList(1)
+            }
+        }
+
+        function getGrpBookUserMngList(pageNo) {
+            FunLoadingBarStart()
+
+            const grpId = searchGrpIdSelect.value
+
+            RequestGETApi("/api/BookUserMng?" +
+                "companyId=" + sessionStorage.getItem("companyId") +
+                "&searchGrpId=" + grpId +
+                "&searchKey=" + searchSelect.value +
+                "&sortKey=" + sortKeyword.value +
+                "&searchKeyword=" + searchText.value +
+                "&pageSize=" + 10 +
+                "&pageNo=" + pageNo)
+                .then(function (response) {
+                    setInviteLink(grpId) //초대링크 확인
+                    const data = (response.resultCode === "00") ? response.resultData : null
+                    let html = ""
+                    let blink = ""
+                    if (!data) {
+                        blink = "데이터가 없습니다."
+                    } else {
+                        let number = 1 + getContentNumber(pageNo)
+                        data.userList.forEach(function (data) {
+                            html += "<tr>"
+                            html += "   <td class=\"align-middle text-center text-sm\">" + number + "</td>"
+                            html += "   <td class='text-center'>"
+                            html += "       <a style=\"text-decoration: underline; cursor: default;\" class=\"mb-0 text-center text-sm\" data-bs-toggle=\"modal\" data-bs-target=\"#userManage\" onclick='getUserData(\"" + data.uId + "\")'>" + data.userNm + "</a>"
+                            html += "   </td>"
+                            html += "   <td>"
+                            html += "       <p class=\"text-xs text-center font-weight-bold mb-0\">" + getHpNo(data.hpNo) + "</p>"
+                            html += "   </td>"
+                            html += "   <td class=\"align-middle text-center\">"
+                            html += "       <h6 class=\"mb-0 text-sm\">" + data.loginId + "</h6>"
+                            html += "   </td>"
+                            html += getAuthState(data.authStat, data.uId, data.grpId, data.userId)
+                            html += "   <td class=\"align-middle text-right\">"
+                            html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(data.monAmt) + " 원" + "</h6>"
+                            html += "   </td>"
+                            html += "   <td class=\"align-middle text-right\">"
+                            html += "       <h6 class=\"mb-0 text-sm\">" + numberWithCommas(data.supportBalance) + " 원" + "</h6>"
+                            html += "   </td>"
+                            html += "   <td class=\"align-middle text-center\">"
+                            html += "       <h6 class=\"mb-0 text-sm\">" + (data.lunarBirthYn === "Y" ? "음력 " : "") + data.userBirth + "</h6>"
+                            html += "   </td>"
+                            html += "   <td class=\"align-middle text-center me-3\">"
+                            html += "       <h6 class=\"mb-0 text-sm\">" + data.regDate + "</h6>"
+                            html += "   </td>"
+                            html += "</tr>"
+                            number++;
+                        })
+                        getPagination(data.totalCount, pageNo, 10, "getGrpBookUserMngList");
+                    }
+                    document.getElementById("listBlink").innerText = blink
+                    document.getElementById("grpBookUserList").innerHTML = html
+                    FunLoadingBarFinish()
+                })
+
+        }
+
+        async function getUserData(uId) {
+            const deptObj = await RequestGETApi("/api/GetDeptCode?companyId=" + sessionStorage.getItem("companyId"))
+            const deptData = (deptObj.resultCode === "00") ? deptObj.resultData : null
+            const infoObj = await RequestGETApi("/api/BookUserInfo?uId=" + uId)
+            const infoData = (infoObj.resultCode === "00") ? infoObj.resultData : null
+            const uData = infoData.userList[0]
+
+            if (!!deptData) {
+                let html = ""
+                for (const deptArrElement of deptData.deptCode) {
+                    html += "<option value=\"" + deptArrElement.VALUE + "\">" + deptArrElement.LABEL + "</option>>"
+                }
+                document.getElementById("modalManageDept").innerHTML = html
+            }
+
+            getSelectedIndexV("modalManageDept", uData.dept)
+
+            document.getElementById("modalManageId").value = uData.loginId
+            document.getElementById("modalManageNm").value = uData.userNm
+            document.getElementById("modalManageHpNo").value = getHpNo(uData.hpNo)
+            document.getElementById("modalManageUserBirth").value = uData.userBirth
+            document.getElementById("modalManageLunarBirthYn").checked = uData.lunarBirthYn === "Y"
+            document.getElementById("modalManageGrpBook").value = uData.grpNm
+            document.getElementById("modalManageAmt").value = numberWithCommas(uData.supportAmt)
+
+            document.getElementById("modalManageUId").value = uData.uId
+            document.getElementById("modalManageUserId").value = uData.userId
+            document.getElementById("modalManageGrpId").value = uData.grpId
+
+        }
+
+        function setInviteLink(grpId) {
+            RequestGETApi("/api/GrpBookInfo?searchGrpId=" + grpId)
+                .then(function (obj) {
+                    const data = (obj.resultCode === "00") ? obj.resultData : null
+                    document.getElementById("inviteLink").innerHTML = (data.infoData[0]["inviteLink"] === "")
+                        ? "<div class=\"btn bg-gradient-primary\" onclick='getInviteLink(\"" + grpId + "\")'>초대링크 생성</div>"
+                        : "<div class=\"text-bold mt-2\">" + data.infoData[0]["inviteLink"] + "</div>"
+                })
+        }
+
+        function getInviteLink(grpId) {
+            RequestPUTApi("/api/CreateInviteLink", {grpId: grpId}).then(function (data) {
+                (data.resultCode === "00") ? getGrpBookUserMngList(1) : err()
+            })
+        }
+
+        function getAuthState(authStat, uId, grpId, userId) {
+            const labels = {
+                "0": "승인대기",
+                "1": "연결완료",
+                "2": "승인거절",
+                "3": "탈퇴",
+                "4": "일시정지",
+                "5": "사용정지중"
+            }
+
+            let html = "<h6 class=\"mb-0 text-sm\">미가입</h6>"
+
+            if (userId !== "") {
+                html = (authStat === "1") ? "<h6 class='mb-0 text-sm'>" + labels[authStat] + "</h6>"
+                    : "<h6 class='mb-0 text-sm'>" + labels[authStat] + "</h6>" +
+                    "<div class='btn-sm btn bg-gradient-primary' id='grpBookConnect' style='margin: 0' " +
+                    "onclick='onClickBookConnect(\"" + authStat + "\",\"" + uId + "\",\"" + grpId + "\")'>장부연결</div>"
+            }
+
+            return "<td class=\"align-middle text-center\">" + html + "</td>"
+        }
+
+        function onClickBookConnect(authStat, uId, grpId) {
+            RequestPOSTApi("/api/ModifyConnectUser", {
+                uId: uId,
+                grpId: grpId,
+                rType: (authStat === "") ? "I" : "U"
+            }).then(function (data) {
+                (data.resultCode === "00") ? getGrpBookUserMngList(1) : err()
+            })
+        }
+
+        function onClickRowDel(button) {
+            let rows = modalTableBody.getElementsByTagName("tr")
+            for (const i in rows) {
+                let cells = rows[i].getElementsByTagName("td")
+                if (cells[4].firstChild === button) {
+                    document.getElementById("modalTableBody").deleteRow(i)
+                    break
+                }
+            }
+        }
+
+        function clickEventListener() { //이벤트 통합관리
+            window.document.addEventListener('click', function (event) {
+                alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+                switch (event.target.id) {
+                    case "modalManageNmBtn": //직원삭제
+                        let grpId = document.getElementById("modalManageGrpId").value
+                        let userId = document.getElementById("modalManageUserId").value
+                        let rType = (grpId === "" || userId === "") ? "" : "U"
+
+                        RequestPUTApi("/api/BookUserDel", //유저삭제
+                            {
+                                rType: rType,
+                                authStat: "5",
+                                companyId: sessionStorage.getItem("companyId"),
+                                grpId: grpId,
+                                leaveTy: "0",
+                                uid: document.getElementById("modalManageUId").value,
+                                userId: userId,
+                                authorCd: sessionStorage.getItem("authorCd")
+                            }
+                        ).then(function (data) {
+                            alertModal.setModalContent("알림", (data.resultCode === "00") ? "제외 되었습니다." : data.resultMsg)
+                            getGrpBookUserMngList(1)
+                        })
+                        break
+                    case "modalManageGrpBookBtn" : //연결해제
+                        RequestPUTApi("/api/BookUserDisconnect",
+                            {
+                                authStat: 5,
+                                grpId: document.getElementById("modalManageGrpId").value,
+                                leaveTy: "0",
+                                userId: document.getElementById("modalManageUserId").value,
+                                authorCd: sessionStorage.getItem("authorCd")
+                            }
+                        ).then(function (data) {
+                            alertModal.setModalContent("알림", (data.resultCode === "00") ? "연결 해제 되었습니다." : data.resultMsg)
+                            getGrpBookUserMngList(1)
+                        })
+                        break
+                    case "modelManageCommit" : //장부 유저 수정
+                        RequestPUTApi("/api/ModifyBookUserInfo",
+                            {
+                                companyId: sessionStorage.getItem("companyId"),
+                                uid: document.getElementById("modalManageUId").value,
+                                userId: document.getElementById("modalManageUserId").value,
+                                userNm: document.getElementById("modalManageNm").value,
+                                hpNo: document.getElementById("modalManageHpNo").value.replaceAll("-", ""),
+                                userBirth: document.getElementById("modalManageUserBirth").value,
+                                lunarBirthYn: document.getElementById("modalManageLunarBirthYn").checked ? "Y" : "N",
+                                deptId: getSelectedValue("modalManageDept"),//셀렉트에서 선택된 값
+                                supportAmt: document.getElementById("modalManageAmt").value.replaceAll(",", ""),
+                                grpId: searchGrpIdSelect.value,
+                                authorCd: sessionStorage.getItem("authorCd")
+                            }
+                        ).then(function (data) {
+                            alertModal.setModalContent("알림", (data.resultCode === "00") ? "수정되었습니다." : data.resultMsg)
+                            getGrpBookUserMngList(1)
+                        })
+                        break
+                    case "modelManageCancel" : //장부 유저 수정 취소
+                        document.getElementById("modalManageId").value = ""
+                        document.getElementById("modalManageNm").value = ""
+                        document.getElementById("modalManageHpNo").value = ""
+                        document.getElementById("modalManageUserBirth").value = ""
+                        document.getElementById("modalManageLunarBirthYn").checked = false
+                        document.getElementById("modalManageGrpBook").value = ""
+                        document.getElementById("modalManageDept").innerHTML = ""
+                        document.getElementById("modalManageAmt").value = ""
+
+                        document.getElementById("modalManageGrpId").value = ""
+                        document.getElementById("modalManageUserId").value = ""
+                        document.getElementById("modalManageUId").value = ""
+                        break
+                    case "modelCancel" : //장부 유저 추가 취소
+                        document.getElementById("modalTableBody").innerHTML = ""
+                        document.getElementById("modalNm").value = ""
+                        document.getElementById("modalHpNo").value = ""
+                        document.getElementById("upload_file").value = ""
+                        break
+                    case "modelCommit" : //장부 유저 추가
+                        let arr = []
+                        const rows = modalTableBody.getElementsByTagName('tr')
+                        for (const row of rows) {
+                            const cells = row.getElementsByTagName('td')
+                            arr.push({
+                                deptId: cells[0].textContent,
+                                deptNm: cells[1].textContent,
+                                userNm: cells[2].textContent,
+                                hpNo: cells[3].textContent,
+                            })
+                        }
+                        RequestPOSTApi("/api/AddUserInBook", {
+                                companyId: sessionStorage.getItem("companyId"),
+                                grpId: searchGrpIdSelect.value,
+                                userList: arr
+                            }
+                        ).then(function (data) {
+                            (data.resultCode === "00") ? getGrpBookUserMngList(1) : err()
+                            document.getElementById("modalTableBody").innerHTML = ""
+                            document.getElementById("modalNm").value = ""
+                            document.getElementById("modalHpNo").value = ""
+                            document.getElementById("upload_file").value = ""
+                        })
+                        break
+                    case "AddUser": //장부 유저 목록에 추가
+                        let name = document.getElementById("modalNm").value
+                        let hpNo = document.getElementById("modalHpNo").value.replaceAll("-", "")
+                        if (name !== "" && hpNo !== "") {
+                            let htmlString = "<tr>"
+                            htmlString += "<td class=\"text-center\" hidden>" + getSelectedValue("modalSelect") + "</td>"
+                            htmlString += "<td class=\"text-center\">" + getSelectedText("modalSelect") + "</td>"
+                            htmlString += "<td class=\"text-center\">" + name + "</td>"
+                            htmlString += "<td class=\"text-center\">" + hpNo + "</td>"
+                            htmlString += "<td class=\"text-center\" ><div class='btn-sm btn bg-gradient-primary mb-0' onclick='onClickRowDel(this)'>삭제</div></td></tr>"
+                            document.getElementById("modalTableBody").innerHTML += htmlString
+                        }
+                        document.getElementById("modalNm").value = ""
+                        document.getElementById("modalHpNo").value = ""
+                        break
+                    case "AddBookUser":
+                        let htmlString = ""
+                        document.getElementById("modalGrpBookNm").textContent = getSelectedText("searchGrpIdSelect")
+                        RequestGETApi("/api/GetDeptCode?companyId=" + sessionStorage.getItem("companyId")).then(function (data) {//부서 가져오는 api
+                            let deptArr = data.resultData.deptCode
+
+                            for (const deptArrElement of deptArr) {
+                                htmlString += "<option value=\"" + deptArrElement.VALUE + "\">" + deptArrElement.LABEL + "</option>\n"
+                            }
+                            document.getElementById("modalSelect").innerHTML = htmlString
+                        })
+
+                        break
+                    case "AddBookUser2":
+                        let htmlString2 = ""
+                        document.getElementById("modalGrpBookNm").textContent = getSelectedText("searchGrpIdSelect")
+                        RequestGETApi("/api/GetDeptCode?companyId=" + sessionStorage.getItem("companyId")).then(function (data) {//부서 가져오는 api
+                            let deptArr = data.resultData.deptCode
+
+                            for (const deptArrElement of deptArr) {
+                                htmlString2 += "<option value=\"" + deptArrElement.VALUE + "\">" + deptArrElement.LABEL + "</option>\n"
+                            }
+                            document.getElementById("modalSelect").innerHTML = htmlString2
+                        })
+
+                        break
+                    case "searchBtn" :
+                        setParams("searchKeyword", document.getElementById("searchText").value)
+                        getGrpBookUserMngList(1)
+                        break
+                }
+            })
+        }
+
+        function textChangeEventListener() { //이벤트 통합관리
+            window.document.addEventListener('input', function (event) {
+                switch (event.target.id) {
+                    case "modalManageAmt" :
+                        let modalManageAmt = document.getElementById("modalManageAmt")
+                        modalManageAmt.value = numberWithCommas((modalManageAmt.value).replaceAll(",", ""))
+                        break
+                    case "modalManageHpNo":
+                        let modalManageHpNo = document.getElementById("modalManageHpNo")
+                        modalManageHpNo.value = getHpNo(modalManageHpNo.value)
+                        break
+                }
+            })
+        }
+
+        function setMessage(id, msg) {
+            document.getElementById(id).textContent = msg
+        }
+
+        function err() {
+            setMessage("modalContent2", "다시 시도해주세요.")
+            document.getElementById("alertModalBtn").click()
+        }
+
+        function enterAdd() {
+            if (window.event.keyCode === 13) {
+                document.getElementById("AddUser").click()
+            }
+        }
+
+    </script>
+
+    <div hidden>
+        <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModal2"
+                onclick='setMessage("modalContent2","회사를 선택해주세요.")'></button>
+    </div>
+
+    <!--메뉴 경로-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">장부관리</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">장부 사용자 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+
+    <!--컨테이너-->
+    <!--안에 본문 그리면 됨-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>장부 사용자 관리</h5>
+        </div>
+
+        <!--검색 바 -->
+        <div class="row card">
+            <div class="row ms-3 mt-3">
+                <h6>검색</h6>
+
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class="form-control" id="searchGrpIdSelect" onchange='getGrpBookUserMngList(1)'>
+                            </select></div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="input-group input-group-alternative mb-4">
+                        <select class="form-control" id="searchSelect">
+                            <option value="userNm">이름</option>
+                            <option value="userHp">전화번호</option>
+                        </select></div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class="form-control" placeholder="Search" type="text" id='searchText'
+                                   onkeyup='searchEnterKey(getGrpBookUserMngList)'>
+                            <span class="input-group-text">
+                                <i class="ni ni-zoom-split-in">
+                                </i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <button type="button" class="btn bg-gradient-primary" id="searchBtn">조회</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card mb-4 mt-4">
+            <br class="card-header pb-0" id="orderBy">
+            <div class="row ms-3 mt-3">
+                <div class="col-md-1 mt-2">
+                    <p class="text-bold">정렬방식</p>
+                </div>
+                <div class="col-md-2 mt-1">
+                    <div class="input-group input-group-alternative mb-4">
+                        <select class="form-control" id="sortKeyword" onchange="getGrpBookUserMngList(1)">
+                            <option value="authState">장부연결</option>
+                            <option value="userNm">이름</option>
+                            <option value="monAmt">이달사용금액</option>
+                            <option value="support">잔여사용금</option>
+                            <option value="regDate">가입일</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4 me-3">
+                    <div onclick="addUserTemp(1);" class="bg-gradient-primary btn " type="button" data-bs-toggle="modal"
+                         data-bs-target="#AddGrpBookUser" id="AddBookUser">사용자 추가
+                    </div>
+
+                    <div onclick="addUserTemp(2);" class="bg-gradient-primary btn " type="button" data-bs-toggle="modal"
+                         data-bs-target="#AddGrpBookUser" id="AddBookUser2">엑셀 업로드
+                    </div>
+                </div>
+                <div class="col-md-1 mt-2">
+                    <p class="text-bold" id="GrpBookNm">초대 링크 : </p>
+                </div>
+                <div class="col" id="inviteLink"></div>
+            </div>
+            <div class="card-body px-0 pt-0 pb-2">
+                <div class="table-responsive p-0">
+                    <table class="table align-items-center mb-0">
+                        <thead id="grpBookUserHeader">
+                        <tr>
+                            <th class="text-center text-xs font-weight-bolder opacity-7 text-uppercase text-secondary">
+                                No.
+                            </th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">이름</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7 text-uppercase">전화번호</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">아이디</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">장부연결</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7">당월 사용금액</th>
+                            <th class="text-right text-xs font-weight-bolder opacity-7">잔여 지원금</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">생년월일</th>
+                            <th class="text-center text-xs font-weight-bolder opacity-7">가입일</th>
+                        </tr>
+                        </thead>
+                        <tbody id="grpBookUserList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <!--페이지-->
+            <nav id="pageNav"></nav>
+        </div>
+
+    </div> <!--컨테이너 끝-->
+
+    <!--사용자 추가 모달-->
+    <div class="col-md-4">
+        <div class="modal fade" id="AddGrpBookUser" tabindex="-1" role="dialog" aria-hidden="true"
+             data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header"><h5 class="modal-title" id="modelTitle">사용자 추가</h5></div>
+                    <div class="modal-body">
+
+                        <div class="row ms-4 me-4 mb-3">
+                            <div class="col">
+                                <label for="modalGrpBookNm" class="text-dark text-sm">장부명</label>
+                                <p class="text-center text-m" id="modalGrpBookNm">장부이름</p>
+                            </div>
+                            <div class="col">
+                                <label for="modalSelect" class="text-dark text-sm">부서</label>
+                                <select class="form-control" id="modalSelect">
+
+                                </select>
+                            </div>
+                        </div>
+
+                        <div id="userDataInput">
+                        <div class="row ms-4">
+                            <div class="col">
+                                <label for="modalNm" class="text-dark text-sm">이름</label><input type="text"
+                                                                                                class="form-control"
+                                                                                                value="" id="modalNm"/>
+                            </div>
+                            <div class="col">
+                                <label for="modalHpNo" class="text-dark text-sm">전화번호</label>
+                                <input type="text" class="form-control inputProps" value="" id="modalHpNo"
+                                       onkeyup='enterAdd()'/>
+                            </div>
+                            <div class="col">
+                                <div type="button" class="btn bg-gradient-primary bt mt-4" id="AddUser">
+                                    추가
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+
+                        <div id="userDataFile">
+                        <div class="row ms-4">
+                            <form id="form" class="form-horizontal" role="form" method="post" enctype="multipart/form-data" action="/api/ParsingExcel">
+                                <input type="file" name="upload_file" id="upload_file">
+                            </form>
+                        </div>
+                        </div>
+
+                        <div class="table-responsive p-0 mt-3 mb-4" style="overflow-y: auto; height: 200px; ">
+                            <table class="table align-items-center mb-0" id="modalTable">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-sm">부서</th>
+                                    <th class="text-center text-sm">이름</th>
+                                    <th class="text-center text-sm">전화번호</th>
+                                    <th class="text-center text-sm">삭제</th>
+                                </tr>
+                                </thead>
+                                <tbody id="modalTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                                id="modelCancel">취소
+                        </button>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                id="modelCommit">등록
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!--사용자 관리 모달-->
+    <div class="col-md-4">
+        <div class="modal fade" id="userManage" tabindex="-1" role="dialog" aria-hidden="true"
+             data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header"><h5 class="modal-title" id="modelManageTitle">사용자 정보</h5></div>
+                    <div class="modal-body">
+                        <input type="hidden" class="class" id="modalManageUserId" value="">
+                        <input type="hidden" class="class" id="modalManageGrpId" value="">
+                        <input type="hidden" class="class" id="modalManageUId" value="">
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageId">아이디</label></div>
+                            <div class="col-9">
+
+                                <input class="cBorder disableGray" id="modalManageId" disabled>
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 ">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageNm">이름</label></div>
+                            <div class="col-6">
+                                <input class="cBorder disableGray" id="modalManageNm" disabled>
+                            </div>
+                            <div class="col-3">
+                                <div class="btn bg-gradient-primary btn-sm mt-1" id="modalManageNmBtn"
+                                     data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">직원삭제
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageHpNo">연락처</label></div>
+                            <div class="col-9">
+                                <input class="cBorder" id="modalManageHpNo" maxlength="13">
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageUserBirth">생년월일</label></div>
+                            <div class="col-2 mt-2 text-right">
+                                음력
+                            </div>
+                            <div class="col-1">
+                                <input type="checkbox" class="cBorder" id="modalManageLunarBirthYn">
+                            </div>
+                            <div class="col-6">
+                                <input type="number" class="cBorder" id="modalManageUserBirth" maxlength="8"
+                                       placeholder="YYYYMMDD">
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageGrpBook">장부</label></div>
+                            <div class="col-6">
+                                <input class="cBorder disableGray" id="modalManageGrpBook" disabled>
+                            </div>
+                            <div class="col-3">
+                                <div class="btn bg-gradient-primary btn-sm mt-1" id="modalManageGrpBookBtn"
+                                     data-bs-dismiss="modal" data-bs-target="#AlertModal" data-bs-toggle="modal">연결해제
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageDept">부서</label></div>
+
+                            <div class="col-9">
+                                <select class="form-control cBorder" id="modalManageDept">
+                                    <option>부서1</option>
+                                    <option>부서2</option>
+                                    <option>부서3</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row ms-2 me-2 mb-3">
+                            <div class="col-3 mt-2"><label class="p" for="modalManageAmt">잔여지원금</label></div>
+                            <div class="col-8">
+                                <input class="cBorder text-right" id="modalManageAmt" style="padding-right: 10px">
+                            </div>
+                            <div class="col-1 mt-2">
+                                <h6>원</h6>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="modal-footer">
+                        <div type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                             id="modelManageCancel">취소
+                        </div>
+                        <div type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                             id="modelManageCommit" data-bs-toggle="modal" data-bs-target="#AlertModal">수정사항 적용
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="modal fade" id="AlertModal2" tabindex="-1" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="AlertModalTitle2">오류</h5>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0" id="modalContent2">회사를 선택해주세요</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                id="AlertModalCommit2">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

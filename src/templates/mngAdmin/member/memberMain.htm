@@ -1,0 +1,350 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            getParamsData(location.href)
+            alertModal = new AlertModal("알림", "알립니다.")
+            getMemberMainList(1)
+            clickEventListener()
+        });
+
+        async function getMemberMainList(pageNo) {
+            FunLoadingBarStart()
+            const contentNum = document.getElementById("contentNum").value
+            const obj = await RequestGETApi("/api/BizUserMng?"
+                + "&sortKey=" + getSelectedValue("selectType")
+                + "&searchKey=" + getSelectedValue("searchSelect")
+                + "&searchKeyword=" + searchText.value.replaceAll("-", "")
+                + "&pageSize=" + contentNum
+                + "&pageNo=" + pageNo)
+
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+
+            if (!!data) {
+                let html = ""
+                let blink = ""
+                if (data.userList.length > 0 && !!data) {
+                    let number = 1 + getContentNumber(pageNo,contentNum)
+                    const cases = {
+                        0: "<span class='badge badge-sm bg-gradient-info'>사용자</span>",
+                        1: "<span class='badge badge-sm bg-gradient-success'>가맹점</span>",
+                        99: "<span class='badge badge-sm bg-gradient-Dark'>관리자</span>",
+                    }
+                    for (const element of data.userList) {
+                        html += "<tr>"
+                        html += "   <td class=\"align-middle text-center text-sm\">" + number + "</td>"
+                        html += "   <td>"
+                        html += "       <div class=\"d-flex px-2 py-1\">"
+                        html += "           <div class=\"d-flex flex-column justify-content-center\">"
+                        html += "               <h6 class=\"mb-0 text-xs\" >" + element.userNm + ((element.restNm !== "") ? "(" + element.restNm + ")" : "") + "</h6>"
+                        html += "               <p class=\"text-xs text-secondary mb-0\">" + element.email + "</p>"
+                        html += "           </div>"
+                        html += "       </div>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0\">" + getHpNo(element.hpNo) + "</p>"
+                        html += "   </td>"
+                        html += "   <td>"
+                        html += "       <p class=\"text-xs font-weight-bold mb-0 \" >"
+                        html += "           <a style=\"text-decoration: underline;\" href=/admin/memberInfo?uId=" + element.uId + ">" + element.loginId + "</a>"
+                        html += "       </p>"
+                        html += "       <p class=\"text-xs text-secondary mb-0\">" + element.loginTy + "</p>"
+                        html += "   </td>"
+
+                        html += "   <td class='align-middle text-center'>"
+                        html += ((element.useYn === 'N') ? "<span class='badge badge-sm bg-gradient-faded-secondary' style='margin: 0;'>사용중지</span>"
+                            : "<span class='badge badge-sm bg-gradient-faded-success' style='margin: 0;'>사용중</span>")
+                        html += "   </td>"
+
+                        html += "   <td class='align-middle text-center'>"
+                        html += cases[element.userTy]
+                        html += "   </td>"
+
+                        html += "   <td class=\"align-middle\">"
+                        html += "       <span class=\"text-secondary text-xs font-weight-bold\">" + element.joinDate + "</span>"
+                        html += "   </td>"
+                        html += "   <td class=\"align-middle\">"
+                        html += "       <a class=\"btn btn-sm bg-gradient-secondary mb-0\" onclick=pushModify(\"" + element.uId + "\") data-bs-toggle=\"modal\" data-bs-target=\"#memberModifyModel\">"
+                        html += "           <i class=\"ms-1 fas fa-pencil-alt text-dark me-2\" />수정</i>"
+                        html += "       </a>"
+                        html += "   </td>"
+                        html += "</tr>"
+                        number++;
+                    }
+                    getPagination(data.totalCount, pageNo, contentNum, "getMemberMainList");
+                } else {
+                    blink = "데이터 없음"
+                }
+                document.getElementById("memberList").innerHTML = html
+                document.getElementById("listBlink").innerText = blink
+            }
+
+            FunLoadingBarFinish()
+        }
+
+        async function pushModify(uId) { //수정 버튼 클릭 모달 팝업
+            const obj = await RequestGETApi('/api/UserInfo?userId=' + uId)
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+            console.log(data)
+            if (!!data) {
+                document.getElementById("modalId").innerText = data.loginId + " (" + data.uId + ")"
+                document.getElementById("modalName").innerText = data.userNm
+                document.getElementById("modalHp").value = getHpNo(data.hpNo)
+                document.getElementById("modalEmail").value = data.email
+                document.getElementById("modalYn").value = data.useYn
+            }
+        }
+
+        async function ResetPw() { //비밀번호 초기화 메소드`
+            const pwd = randomString(6)
+            const obj = await RequestPUTApi("/api/ResetPassword", {
+                userId: document.getElementById("modalId").innerText.split("(")[1].replace(")", ""),
+                passwd: SHA256(pwd)
+            })
+            alertModal.setModalContent("알림", (obj.resultCode === "00") ? "비밀번호가 \"" + pwd + "\" 로 초기화 되었습니다." : "다시 시도해주세요.")
+            await getMemberMainList(1)
+        }
+
+        async function ModifyUserInfo() { //회원정보 수정 메소드
+            const obj = await RequestPUTApi("/api/UserInfoCommit", {
+                email: document.getElementById("modalEmail").value,
+                hpNo: document.getElementById("modalHp").value.replaceAll("-", ""),
+                useYn: getSelectedValue("modalYn"),
+                userId: document.getElementById("modalId").innerText.split("(")[1].replace(")", "")
+            })
+            alertModal.setModalContent("알림", (obj.resultCode === "00") ? "회원정보가 수정되었습니다." : "다시 시도해주세요.")
+            await getMemberMainList(1)
+        }
+
+        function setModalAlertBtn(title, content, func) { //버튼에 모달 알림창 세팅
+            document.getElementById("AlertModalTitle").innerText = title
+            document.getElementById("modalContent").innerText = content
+            document.getElementById("AlertModalCommit").onclick = func
+        }
+
+        function clickEventListener() {
+            window.document.addEventListener('click', function (event) {
+                switch (event.target.id) {
+                    case "memberModifyModelResetPw":
+                        setModalAlertBtn("비밀번호 초기화", "비밀번호를 초기화 하시겠습니까? ", ResetPw)
+                        break
+                    case "memberModifyModelCommit":
+                        setModalAlertBtn("회원정보 수정", "입력한 회원정보로 수정하시겠습니까?", ModifyUserInfo)
+                        break
+                }
+            })
+        }
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">회원관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <h5>회원관리</h5>
+        </div>
+        <!--검색바-->
+        <div class="container">
+            <div class="row">
+                <h6>검색</h6>
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="selectType" onchange='getMemberMainList(1)'>
+                                <option value="all">전체</option>
+                                <option value="store">가맹점</option>
+                                <option value="member">사용자</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <select class=" form-control" id="searchSelect" >
+                                <option value="userNm">이름</option>
+                                <option value="userHp">전화번호</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <div class=" form-group">
+                        <div class="input-group input-group-alternative mb-4">
+                            <input class=" form-control" placeholder="Search"
+                                   type="text" id="searchText" onkeyup='searchEnterKey(getMemberMainList)'>
+                            <span class=" input-group-text">
+                            <i class="ni ni-zoom-split-in"></i>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class=" col-md-2">
+                    <div class="form-group">
+                        <div class=" input-group input-group-alternative mb-4">
+                            <button type="button" class=" btn bg-gradient-primary" id="searchButton" onclick="getMemberMainList(1)">조회</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!--본문 표 테이블-->
+        <div class="row card p-3">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-1 ms-4">
+                        <label class="mb-0 text-sm mt-1 text-right" for="contentNum">검색 개수</label>
+                    </div>
+
+                    <div class="col-2">
+                        <select class="form-control customBorder p-0 ps-2 mb-2" id="contentNum"
+                                onchange="getMemberMainList(1)">
+                            <option value='10' selected>10 개</option>
+                            <option value='20'>20 개</option>
+                            <option value='30'>30 개</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-responsive p-0" style="overflow-x: hidden">
+                    <table class="table align-items-center mb-0">
+                        <thead>
+                        <tr>
+                            <th class="text-center text-uppercase text-xs font-weight-bolder opacity-7">No.</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">이름</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">전화번호</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">아이디</th>
+                            <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">사용여부</th>
+                            <th class="text-center text-uppercase text-secondary text-xs font-weight-bolder opacity-7">타입</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7">가입일</th>
+                            <th class="text-left text-uppercase text-secondary text-xs font-weight-bolder opacity-7 pe-4">비고</th>
+                        </tr>
+                        </thead>
+                        <tbody id="memberList"></tbody>
+                    </table>
+                    <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                </div>
+            </div>
+            <nav id="pageNav"></nav>
+        </div>
+    </div>
+
+
+    <!--Modal-->
+    <div class="col-md-4">
+        <div class="modal fade" id="memberModifyModel" tabindex="-1" role="dialog"
+             aria-labelledby="exampleModalMessageTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">회원수정</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form>
+                            <div class="form-group">
+                                <label for="modalId" class="col-form-label">로그인(userId)</label>
+                                <p class="mb-0" id="modalId">splinter0815@gmail.com (U0000005393)</p>
+                            </div>
+                            <div class="form-group">
+                                <label for="modalName" class="col-form-label">이름</label>
+                                <p class="mb-0" id="modalName">정민철</p>
+                            </div>
+                            <div class="form-group">
+                                <label for="modalHp" class="col-form-label">전화번호</label>
+                                <input type="text" class="form-control" value="010-3731-1660" id="modalHp">
+                            </div>
+                            <div class="form-group">
+                                <label for="modalEmail" class="col-form-label">Email</label>
+                                <input type="text" class="form-control" value="splinter0815@gmail.com"
+                                       id="modalEmail">
+                            </div>
+                            <div class="form-group">
+                                <label class="col-form-label">비밀번호</label>
+                                <br>
+                                <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#AlertModal2" id="memberModifyModelResetPw">초기화
+                                </button>
+                            </div>
+                            <div class="form-group">
+                                <label for="modalYn" class="col-form-label">사용여부</label>
+                                <div class="input-group input-group-alternative mb-4">
+                                    <select class="form-control" id="modalYn">
+                                        <option value="Y">사용</option>
+                                        <option value="N">탈퇴</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal">취소
+                        </button>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                data-bs-toggle="modal"
+                                data-bs-target="#AlertModal2" id="memberModifyModelCommit">수정사항 적용
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="modal fade" id="AlertModal2" tabindex="-3" role="dialog"
+             aria-labelledby="exampleModalMessageTitle" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="AlertModalTitle">수정</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">×</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <p class="mb-0" id="modalContent">이곳에 내용 입력</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn bg-gradient-secondary" data-bs-dismiss="modal">취소
+                        </button>
+                        <button type="button" class="btn bg-gradient-primary" data-bs-dismiss="modal"
+                                id="AlertModalCommit" data-bs-target="#AlertModal" data-bs-toggle="modal">확인
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

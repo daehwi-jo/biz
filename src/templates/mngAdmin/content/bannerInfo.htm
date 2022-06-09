@@ -1,0 +1,297 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        const bannerSize = ["750*200"]
+        const dragData = new FormData()
+
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+
+            getParamsData(location.href)
+            getBannerInfo()
+            fileDragNDrop()
+        })
+
+        function getBannerInfo() {
+            const bannerId = getParams("bannerId")
+            fetch('/api/contents/bannerInfo?bannerId=' + bannerId
+            ).then(function (response) {
+                return response.json();
+            }).then(function (res) {
+                const data = (res.resultCode === "00") ? res.resultData : null
+                if (!!data) {
+
+                    const infoData = data.bannerInfo
+                    const type = infoData.bannerType
+
+                    bKind.value = infoData.bKind
+                    bannerType.value = type
+                    document.getElementById("bannerSize").textContent = bannerSize[type]
+                    useYn.value = infoData.useYn
+                    startDate.value = infoData.startDate
+                    endDate.value = infoData.endDate
+                    startTime.value = infoData.startTime
+                    endTime.value = infoData.endTime
+
+                    title.value = infoData.title
+                    link.value = infoData.url
+
+                    imgPreview.src = (infoData.image === "") ? "" : infoData.image
+
+                    document.getElementById("path").value = infoData.image
+
+
+                }
+            })
+        }
+
+        async function modBannerInfo() {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+
+            const start = startDate.value
+            const end = endDate.value
+            const oldPath = document.getElementById("path").value
+            let path = ""
+            let fileCheck = !!dragData.get("files")
+
+            if (title.value === "") {
+                alertModal.setModalContent("알림", "제목을 입력하세요.")
+            } else if (start === "") {
+                alertModal.setModalContent("알림", "시작날짜를 입력해주세요.")
+            } else if (end === "") {
+                alertModal.setModalContent("알림", "마감날짜를 입력해주세요.")
+            } else if (end.replaceAll("-", "") < start.replaceAll("-", "")) {
+                alertModal.setModalContent("알림", "시작날짜는 마감날짜를 넘을 수 없습니다.")
+            } else if (startTime === "" || endTime === "") {
+                alertModal.setModalContent("알림", "시작시간 또는 마감시간을 입력해주세요.")
+            } else {
+                let newPath = ""
+                if (fileCheck) {
+                    const img = {method: 'POST', body: dragData};
+                    const response = await fetch('/api/contents/AddBannerImg', img).then(function (response) {
+                        return response.json();
+                    })
+                    newPath = (response.resultCode === "00") ? response.resultPath : ""
+                }
+                path = (newPath === "") ? oldPath : newPath
+
+                const opts = {
+                    method: 'PUT', body: JSON.stringify({
+                        bannerId: getParams("bannerId"),
+                        bKind: bKind.value,
+                        bannerType: bannerType.value,
+                        useYn: useYn.value,
+                        startDate: start,
+                        startTime: startTime.value,
+                        endDate: end,
+                        endTime: endTime.value,
+                        title: title.value.replaceAll("'", "\\'"),
+                        link: link.value.replaceAll("'", "\\'"),
+                        image: path,
+                    }), headers: {"Content-Type": "application/json"}
+                }
+                fetch('/api/contents/bannerInfo', opts).then(function (response) {
+                    return response.json();
+                }).then(function (res) {
+                    alertModal.setModalContent("알림", (res.resultCode === "00") ? "배너가 수정되었습니다." + ((path === oldPath) ? "" : ((path === "") ? "(이미지 업로드에 실패했습니다)" : "(이미지 업로드에 성공했습니다)")) : "오류가 발생했습니다.")
+                })
+            }
+        }
+
+        function readImage(input) {
+            if (input.files && input.files[0]) {
+                const previewImage = document.getElementById("imgPreview")
+                const extend = input.files[0].name.split(".").pop()
+                if (!(extend === "jpg" || extend === "png" || extend === "jpeg" || extend === "gif")) {
+                    input.value = ""
+                    fileName.value = "이미지를 다시 선택해주세요, (업로드 가능한 확장자는 jpg , png , jpeg , gif 입니다.)"
+                    fileName.style.color = "red"
+                    return
+                }
+                fileName.style.color = ""
+
+                const reader = new FileReader()
+                reader.onload = e => {
+                    previewImage.src = e.target.result
+                }
+                reader.readAsDataURL(input.files[0])
+                dragData.delete("files")
+                dragData.append("files", input.files[0], input.files[0].name)
+                fileName.value = input.files[0].name
+            }
+        }
+
+        function fileDragNDrop() {
+            //이미지 프리뷰
+            const imgPreview = document.getElementById("imgPreview")
+
+            /* 박스 안에 Drag를 하고 있을 때 */
+            imgPreview.addEventListener('dragover', function (event) {
+                event.preventDefault()
+                imgPreview.style.border = '2px solid rgb(232, 135, 234)'
+                imgPreview.style.borderRadius = '0.5rem'
+            })
+
+            /* 박스 밖으로 Drag가 나갈 때 */
+            imgPreview.addEventListener('dragleave', function (event) {
+                event.preventDefault()
+                imgPreview.style.border = '1px solid #d2d6da'
+                imgPreview.style.borderRadius = '0.5rem'
+            })
+
+            /* 박스 안에서 Drag를 Drop했을 때 */
+            imgPreview.addEventListener('drop', function (event) {
+                event.preventDefault()
+                imgPreview.style.border = '1px solid #d2d6da'
+                imgPreview.style.borderRadius = '0.5rem'
+
+                const image = event.dataTransfer.files[0]
+                const extend = image.name.split(".").pop()
+
+                if (!(extend === "jpg" || extend === "png" || extend === "jpeg" || extend === "gif")) {
+                    fileName.value = "이미지를 다시 선택해주세요, (업로드 가능한 확장자는 jpg , png , jpeg , gif 입니다.)"
+                    fileName.style.color = "red"
+                    return
+                }
+                fileName.style.color = ""
+
+                const reader = new FileReader()
+                reader.onload = e => {
+                    imgPreview.src = e.target.result
+                }
+                reader.readAsDataURL(image)
+                dragData.delete("files")
+                dragData.append("files", image, image.name)
+                fileName.value = image.name
+            })
+        }
+
+
+    </script>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href='/admin/banner'">배너 관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">배너 관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row mt-2 mb-2">
+            <div class="col-md-3">
+                <h5>배너 관리 상세</h5>
+            </div>
+            <div class="col-md-3">
+                <button class="btn bg-gradient-primary" onclick='location.href="/admin/banner"'>뒤로가기</button>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="row card p-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-4">
+                            <label class="mb-0 text-sm" for="bKind">앱</label>
+                            <select class="form-control " id="bKind">
+                                <option value="0">모카</option>
+                                <option value="1">캐시</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="bannerType">배너종류</label>
+                            <select class="form-control " id="bannerType">
+                                <option value="0">탑배너</option>
+                            </select>
+                            <label class="mb-0 mt-2 text-sm" for="useYn">사용여부</label>
+                            <select class="form-control" id="useYn">
+                                <option value="Y">사용함</option>
+                                <option value="N">사용안함</option>
+                            </select>
+                            <div class="row mt-2">
+                                <label class="mb-0">시작일</label>
+                                <div class="col-6">
+                                    <input class="form-control text-sm" type="date" placeholder="게시 시작일"
+                                           id="startDate"/>
+                                </div>
+                                <div class="col-6">
+                                    <input class="form-control text-sm" type="time" placeholder="게시 마감일"
+                                           id="startTime"/>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <label class="mb-0">마감일</label>
+                                <div class="col-6">
+                                    <input class="form-control text-sm" type="date" placeholder="게시 시작일" id="endDate"/>
+                                </div>
+                                <div class="col-6">
+                                    <input class="form-control text-sm" type="time" placeholder="게시 마감일" id="endTime"/>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-8">
+                            <label class="mb-0 mt-2" for="title">제목</label>
+                            <input class="form-control text-sm" placeholder="제목입력" id="title" maxlength="500"/>
+
+                            <label class="mb-0 mt-2" for="link">링크</label>
+                            <input class="form-control text-sm" placeholder="링크입력" id="link" maxlength="500"/>
+                            <div class="row">
+                                <div class="col"><label class="mb-0 mt-2">배너 이미지</label></div>
+                                <div class="col-3">
+                                    <div class="row text-right">
+                                        <div class="col text-right"><label class="mb-0 mt-2">권장 사이즈 : </label></div>
+                                        <div class="col text-left"><label class="mb-0 mt-2" id="bannerSize"></label></div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="input-group mb-0" style="height: 30px">
+                                <button class="btn btn-outline-primary mb-0 pt-1" type="button"
+                                        style="height: 30px;padding-top: 0.4rem !important;"
+                                        onclick='document.getElementById("imgFile").click()'>파일 선택
+                                </button>
+                                <input type="text" class="form-control" id="fileName" placeholder="선택된 파일 없음" value=""
+                                       style="height: 30px; padding-left:10px" disabled/>
+                            </div>
+                            <input type="file" class="form-control" onchange="readImage(this)" id="imgFile"
+                                   style="display: none">
+                            <input id="path" style="display:none;"/>
+                            <img class="form-control mt-2" style="height: 130px;" src='' id="imgPreview" height="110"
+                                 width="800"/>
+
+                        </div>
+                    </div>
+                    <div class="row mt-5">
+                        <div class="col text-right">
+                            <button type="button" class="btn bg-gradient-primary ps-5 pe-5 mb-0"
+                                    onclick="modBannerInfo()"
+                                    data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#AlertModal">수정하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

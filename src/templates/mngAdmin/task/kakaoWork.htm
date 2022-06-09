@@ -1,0 +1,207 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg" id="main">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            alertModal = new AlertModal("알람", "알립니다.")
+            startDate.value = getDate(0, 0)
+            endDate.value = getDate(0, 0)
+        });
+
+        function processStart() {
+            alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+            if (!token.value) {
+                return alertModal.setModalContent("알림", "토큰값을 입력해주세요.")
+            } else if (!startDate.value) {
+                return alertModal.setModalContent("알림", "시작일을 입력해주세요.")
+            } else if (!endDate.value) {
+                return alertModal.setModalContent("알림", "마감일을 입력해주세요.")
+            }
+
+            const opts = {
+                method: 'POST', body: JSON.stringify({
+                    startDate: startDate.value
+                    , startTime: startTime.value
+                    , endDate: endDate.value
+                    , endTime: endTime.value
+                    , token: token.value
+                }), headers: {"Content-Type": "application/json"}
+            }
+
+            fetch("/api/admin/kakaoWork", opts).then(function (response) {
+                return response.json()
+            }).then(function (data) {
+                if (data.resultCode !== "00") {
+                    alertModal.setModalContent("알림", data.resultMsg)
+                    return
+                }
+                const kakaoReslut = data.resultData.kakaoWorkResult
+                const calenderReslut = data.resultData.googleCalenderResult
+
+                let blink = ""
+                if (!kakaoReslut) {
+                    blink = "추가 내역 없음"
+                } else {
+                    const badge = (str) => {
+                        return "<span class='badge badge-sm " + ((str === "success") ? "bg-gradient-faded-success" : "bg-gradient-faded-danger") + "' style='margin: 0;'>" + ((str === "success") ? "등록 성공" : "등록 실패") + "</span>"
+                    }
+                    let html = ""
+                    for (const element of kakaoReslut) {
+                        html += "<tr>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.seq + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.name + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.date + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.startTime + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.endTime + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + badge(element.result) + "</td>" +
+                            "</tr>"
+                    }
+                    kakaoWorkResult.innerHTML = html
+                }
+                kakaoWorkBlink.textContent = blink
+
+                if (!calenderReslut) {
+                    blink = "추가 내역 없음"
+                } else {
+                    let html = ""
+                    for (const element of calenderReslut) {
+                        html += "<tr>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.title + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.startDate + "</td>" +
+                            "<td class=\"text-center text-xs font-weight-bolder \">" + element.endDate + "</td>" +
+                            "</tr>"
+                    }
+                    calenderResult.innerHTML = html
+                }
+                calenderBlink.textContent = blink
+
+                alertModal.setModalContent("알림", "근무시간이 업데이트 되었습니다.")
+            })
+        }
+
+    </script>
+
+    <!-- 경로 네비 commons.js-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">카카오워크 관리</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--검색바-->
+        <div class="card-header-new pb-0 mb-2" id="SearchBar">
+            <div class="row">
+                <h5 class="mt-2">카카오 워크 연동</h5>
+
+            </div>
+        </div>
+
+        <div class=" p-3">
+            <div class="row">
+                <div class="col-6 ms-4">
+                    <div class="card p-3">
+                        <div class="text-sm text-warning text-center">카카오 워크 출퇴근 시간 기록 및 오늘 기준 +7 일 간의 예정된 휴가들을 구글 캘린더에
+                            기록합니다.
+                        </div>
+
+                        <label class="h6">토큰</label>
+                        <div class="input-group mb-3">
+                            <input class="form-control cBorder" id="token" placeholder="카카오워크 로그인 토큰값을 입력해야합니다.">
+                        </div>
+
+                        <h6>업무시간 설정</h6>
+                        <div class="row mb-4">
+                            <div class="col">
+                                <label class="text-dark mb-0">시작일</label>
+                                <div class="input-group mb-3">
+                                    <input class="form-control cBorder" id="startDate" type="date">
+                                </div>
+                                <label class="text-dark mb-0">시작시간</label>
+                                <div class="input-group">
+                                    <input class="form-control cBorder" id="startTime" type="time" value="09:30:00">
+                                </div>
+                            </div>
+
+                            <div class="col">
+                                <label class="text-dark mb-0">완료일</label>
+                                <div class="input-group mb-3">
+                                    <input class="form-control cBorder" id="endDate" type="date">
+                                </div>
+                                <label class="text-dark mb-0">완료시간</label>
+                                <div class="input-group">
+                                    <input class="form-control cBorder" id="endTime" type="time" value="18:30:00">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn bg-gradient-primary" onclick="processStart()" data-bs-toggle="modal"
+                                data-bs-target="#AlertModal">워크 출퇴근 시간등록 및 휴가 등록하기
+                        </button>
+                    </div>
+                </div>
+                <div class="col-5 ms-4">
+                    <div class="row card p-3">
+                        <h6>카카오워크 연동 결과</h6>
+                        <div class="table-responsive p-0">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary">No.</th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">이름</th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">근무일</th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">시작시간</th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">완료시간</th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">결과</th>
+                                </tr>
+                                </thead>
+                                <tbody id="kakaoWorkResult">
+                                </tbody>
+                            </table>
+                            <p class="text-center text-s font-weight-bold mb-3 mt-2" id="kakaoWorkBlink">워크 출퇴근시간 및 휴가를
+                                등록해주세요.</p>
+                        </div>
+                    </div>
+                    <div class="row card p-3 mt-4">
+                        <h6>구글캘린더 추가 등록 내역</h6>
+                        <div class="table-responsive p-0">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7 text-secondary">휴가 내용
+                                    </th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">시작일</th>
+                                    <th class="text-center text-xs font-weight-bolder opacity-7">종료일</th>
+                                </tr>
+                                </thead>
+                                <tbody id="calenderResult">
+                                </tbody>
+                            </table>
+                            <p class="text-center text-s font-weight-bold mb-3 mt-2" id="calenderBlink">워크 출퇴근시간 및 휴가를
+                                등록해주세요.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

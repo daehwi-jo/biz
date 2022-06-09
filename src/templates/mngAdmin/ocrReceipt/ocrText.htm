@@ -1,0 +1,326 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script>
+        document.addEventListener("DOMContentLoaded", async function () {
+            alertModal = new AlertModal("알림", "알립니다.")
+            getParamsData(location.href)
+            receiptFloating()
+            clickEventListener() //이벤트 정리
+            await getOCRTextList()
+        })
+
+        function clickEventListener() { //이벤트 통합관리
+            window.document.addEventListener('click', async function (event) {
+                let html = ""
+                let blink = ""
+                let length = 0
+                let obj = null
+                switch (event.target.id) {
+                    case "btn_search":
+                        receiptBizNum.value = ""
+                        receiptTextId.value = ""
+                        receiptText.value = ""
+                        receipt_image.src = ""
+                        await getOCRTextList()
+                        break
+                    case "btn_menu_all_change":
+                        length = textListLength.textContent
+                        if (length !== 0) {
+                            for (let i = 0; i < length; i++) {
+                                getSelectedIndexV(document.getElementById("textSelect" + i).id, getSelectedValue("btn_menuYn_all_select"))
+                            }
+                        }
+                        break
+                    case "btn_save" :
+                        alertModal.setModalContent("알림", "잠시만 기다려주세요.")
+                        length = textListLength.textContent
+                        let arr = []
+                        for (let i = 0; i < length; i++) {
+                            let isMenu = getSelectedValue("textSelect" + i)
+                            let menuNm = document.getElementById("textMenuNm" + i).value.replaceAll(/\s/g, "")
+                            let menuPrice = document.getElementById("textMenuPrice" + i).value.replaceAll(/(\s+|,)/g, "")
+
+                            if (isMenu === "Y") {
+                                if (menuNm === "") {
+                                    alertModal.setModalContent("알림", "텍스트ID " + document.getElementById("textId" + i).textContent + " 의 메뉴이름이 입력되지 않았습니다.")
+                                    return
+                                } else if (menuPrice === "") {
+                                    alertModal.setModalContent("알림", "텍스트ID " + document.getElementById("textId" + i).textContent + " 의 단가가 입력되지 않았습니다.")
+                                    return
+                                }
+                            }
+                            let obj = {
+                                isMenu: isMenu,
+                                menuNm: menuNm,
+                                menuPrice: menuPrice,
+                                restId: document.getElementById("textRestId" + i).textContent,
+                                bizNum: document.getElementById("bizNum" + i).textContent,
+                                textId: document.getElementById("textId" + i).textContent
+                            }
+                            arr.push(obj)
+                        }
+                        obj = await RequestPUTApi("/api/ocr/textUpdate", {list: arr})
+                        alertModal.setModalContent("알림", (obj.resultCode === "00") ? "저장 되었습니다." : "다시 시도해주세요.")
+                        await getOCRTextList()
+                        receiptBizNum.value = ""
+                        receiptTextId.value = ""
+                        receiptText.value = ""
+                        receipt_image.src = ""
+
+                        break
+                    case "btn_recheck_receipt":
+                        btn_recheck_receipt.disabled = true
+                        btn_recheck_receipt.textContent = "영수증 재처리 중입니다."
+                        obj = await RequestPOSTApi("https://dalbit.fit-technet.com/app/ocr/recycles", {})
+                        alertModal.setModalContent("알림", (obj.resultCode === "00") ? "재처리가 완료 되었습니다." : "다시 시도해주세요.")
+                        btn_recheck_receipt.disabled = false
+                        btn_recheck_receipt.textContent = "영수증 판독 재처리"
+                        break
+                }
+            })
+        }
+
+        async function getOCRTextList() {
+            const obj = await RequestGETApi("/api/ocr/textList?isMenu=" + getSelectedValue("searchKey") + "&bizNum=" + searchKeyword.value)
+            setParams("bizNum", searchKeyword.value)
+            const data = (obj.resultCode === "00") ? obj.resultData : null
+
+            if (!!data) {
+                let html = ""
+                let blink = ""
+                const length = data.textList.length
+                if (length !== 0) {
+                    for (const i in data.textList) {
+                        html += "<tr onclick='onClickCheckBox(this,\"" + data.textList[i].textId + "\",\"" + data.textList[i].bizNum + "\",\"" + data.textList[i].receiptId + "\")'>"
+                        html += "<div id='textRestId" + i + "' hidden>" + data.textList[i].restId + "</div>"
+                        html += "   <td class=\"text-center text-sm text-dark\" id='bizNum" + i + "'>" + data.textList[i].bizNum + "</td>"
+                        html += "   <td class=\"text-center text-sm text-dark\" id='textId" + i + "'>" + data.textList[i].textId + "</td>"
+                        html += "   <td class=\"text-left text-sm text-dark\" style='max-width: 270px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ' id='texts" + i + "'>" + data.textList[i].texts + "</td>"
+                        html += "   <td class=\"text-center text-sm text-dark\">"
+                        html += "   <select class='form-control customBorder p-0 ps-2' id='textSelect" + i + "' onchange='checkSelectBox(this)'>"
+                        html += "   <option value='-' " + ((data.textList[i].isMenu === "-") ? "selected" : "") + ">알수없음</option>"
+                        html += "   <option value='Y' " + ((data.textList[i].isMenu === "Y") ? "selected" : "") + ">메뉴</option>"
+                        html += "   <option value='N' " + ((data.textList[i].isMenu === "N") ? "selected" : "") + ">메뉴 아님</option>"
+                        html += "   </select></td>"
+                        html += "   <td class=\"text-center text-sm text-dark\"><input class='customBorder p-0 ps-2 text-sm text-dark disableGray' value='' id='textMenuNm" + i + "'  disabled></td>"
+                        html += "   <td class=\"text-center text-sm text-dark\"><input class='customBorder p-0 ps-2 text-sm text-dark disableGray' value='' id='textMenuPrice" + i + "' disabled></td>"
+                        html += "</tr>"
+                    }
+                } else {
+                    blink = "데이터 없음"
+                }
+                textListLength.textContent = length
+                textList.innerHTML = html
+                listBlink.textContent = blink
+            }
+        }
+
+        async function onClickCheckBox(obj, textId, bizNum, receiptId) {
+            if (obj.style.background !== "darkgrey") {
+                const rows = document.getElementById("textList").getElementsByTagName("tr")
+                for (let i = 0; i < rows.length; i++) {
+                    rows[i].style.background = ((rows[i] === obj) ? "darkgrey" : "white")
+                }
+                const response = await RequestGETApi("/api/ocr/textData?textId=" + textId + "&bizNum=" + bizNum + "&receiptId=" + receiptId)
+                const data = (response.resultCode === "00") ? response.resultData : null
+
+                if (data !== null) {
+                    receiptBizNum.value = data.receiptData.bizNum
+                    receiptTextId.value = data.receiptData.textId
+                    receiptText.value = data.receiptData.texts
+                    receipt_image.src = data.receiptData.receiptImg
+                }
+            }
+        }
+
+        function receiptFloating() {
+            $(window).scroll(function (event) {
+                if ($(window).scrollTop() > $(".banner").offset().top) {
+                    $("#chase").css("position", "fixed");
+                    $("#chase").css("flex", "0 0 auto");
+                    $("#chase").css("width", "26%");
+                    $("#chase").css("margin-top", "20px");
+                } else if (($(window).scrollTop() < $(".banner").offset().top)) {
+                    $("#chase").css("position", "static");
+                    $("#chase").css("width", "100%");
+                    $("#chase").css("flex", "0 0 auto");
+                    $("#chase").css("margin-top", "0px");
+                }
+            });
+        }
+
+        function checkSelectBox(obj) {
+            let number = obj.id.replace(/[^0-9]/g, "")
+            if (obj.value === "Y") {
+                document.getElementById("textMenuNm" + number).disabled = false
+                document.getElementById("textMenuPrice" + number).disabled = false
+                document.getElementById("textMenuNm" + number).value = document.getElementById("texts" + number).textContent
+
+            } else {
+                document.getElementById("textMenuNm" + number).disabled = true
+                document.getElementById("textMenuPrice" + number).disabled = true
+            }
+        }
+
+    </script>
+
+    <div hidden>
+        <button id="alertModalBtn" data-bs-toggle="modal" data-bs-target="#AlertModal2"></button>
+    </div>
+
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">텍스트 검증</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <div class="row">
+            <h5>텍스트 검증</h5>
+        </div>
+
+        <div class="row">
+            <div class="col-8">
+                <div class="card p-3">
+                    <div class="row">
+                        <div class="col-4 ">
+                            <label class="mb-0">사업자 번호</label>
+                            <input class="form-group customBorder ps-2" id="searchKeyword">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-4">
+                            <label class="mb-0">메뉴여부</label>
+                            <select class="form-control customBorder p-0 ps-2 mb-0" id="searchKey">
+                                <option value="-">알수없음</option>
+                                <option value="Y">메뉴</option>
+                                <option value="N">메뉴 아님</option>
+                            </select>
+
+                        </div>
+                        <div class="col text-right">
+                            <button class="btn bg-gradient-primary mb-0 mt-3 ps-6 pe-6" id="btn_search">조회</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-4">
+                <div class="card p-3">
+                    <div class="row pb-0 text-center">
+                        <h5>메뉴여부 텍스트 보정을 마친 후<br>영수증 판독 재처리를 진행해주세요.</h5>
+                    </div>
+
+                    <div class="row p-3 pb-0">
+                        <button class="btn bg-gradient-primary mb-0" id="btn_recheck_receipt"
+                                data-bs-target="#AlertModal" data-bs-toggle="modal">영수증 판독 재처리
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row pt-3">
+            <div class="col-8">
+                <div class="card p-3">
+                    <div class="row">
+                        <div class="col-3">
+                            <label></label>
+                            <select class="form-control customBorder p-0 mt-0 ps-2 mb-0" id="btn_menuYn_all_select">
+                                <option value="Y">메뉴</option>
+                                <option value="N">메뉴 아님</option>
+                            </select>
+
+                        </div>
+                        <div class="col-2">
+                            <button class="btn-sm btn bg-gradient-secondary mt-1 mb-0" id="btn_menu_all_change">메뉴 일괄
+                                변경
+                            </button>
+                        </div>
+                        <div class="col text-right">
+                            <button class="btn-sm btn bg-gradient-primary ps-6 pe-6 mb-0 mt-1" id="btn_save"
+                                    data-bs-toggle="modal" data-bs-target="#AlertModal">저장
+                            </button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div id="textListLength" hidden></div>
+                        <div class="table-responsive p-1" style="overflow-x: hidden">
+                            <table class="table align-items-center mb-0">
+                                <thead>
+                                <tr>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        사업자번호
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        텍스트ID
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">텍스트</th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">메뉴여부
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7 text-uppercase">
+                                        메뉴
+                                    </th>
+                                    <th class="text-center text-xs text-secondary font-weight-bolder opacity-7">단가</th>
+                                </tr>
+                                </thead>
+
+                                <tbody id="textList"></tbody>
+                            </table>
+                            <h6 class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink">데이터 없음</h6>
+                        </div>
+                        <nav id="pageNav"></nav>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-4 banner" id="receiptData">
+                <div id="chase" style="top: 0px; flex:0 0 auto;width:100%;">
+                    <div class="card p-3">
+                        <div class="row"><h6>연결된 영수증</h6></div>
+                        <div class="row ps-3 pe-3">
+                            <label class="ps-0 mb-0" for="receiptBizNum">사업자번호</label>
+                            <input class="form-group customBorder mb-1 disableGray" id="receiptBizNum" disabled>
+                        </div>
+                        <div class="row ps-3 pe-3">
+                            <label class="ps-0 mb-0" for="receiptTextId">텍스트 ID</label>
+                            <input class="form-group customBorder mb-1 disableGray" id="receiptTextId" disabled>
+                        </div>
+                        <div class="row ps-3 pe-3">
+                            <label class="ps-0 mb-0" for="receiptText">텍스트</label>
+                            <input class="form-group customBorder mb-1 disableGray" id="receiptText" disabled>
+                        </div>
+                        <div class="row ps-3 pe-3">
+                            <label class="ps-0 mb-0" for="receipt_image">영수증 이미지</label>
+                            <img src="" id="receipt_image"
+                                 class="img-fluid shadow border-radius-xl customBorder mb-1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    </div>
+
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
+

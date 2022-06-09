@@ -1,0 +1,400 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+    <script type="text/javascript" src="/public/js/commons/csList.js"></script>
+    <script type="text/javascript">
+
+        document.addEventListener("DOMContentLoaded", function () {
+            getParamsData(location.href)
+            SetMemberInfoData()
+        })
+
+        async function SetMemberInfoData() {
+            FunLoadingBarStart()
+            const obj = await RequestGETApi('/api/UserInfoCsMng?userId=' + getParams("uId"))
+
+            console.log(obj.resultData)
+
+            const iData = obj.resultData.userInfo
+            const myGrpData = obj.resultData.userGrpData
+            const grpData = obj.resultData.userGrpData2
+            const unUsedCouponList = obj.resultData.unUsedCouponList
+            const billingCardInfo = obj.resultData.billingCardInfo
+
+            document.getElementById("userNm").textContent = iData.userNm
+            document.getElementById("userId").textContent = iData.loginId
+            document.getElementById("loginType").textContent = iData.joinType
+            document.getElementById("joinDate").textContent = iData.joinDate
+            document.getElementById("useState").textContent = iData.useYn
+            document.getElementById("lastLoginDate").textContent = iData.lastJoinDate
+
+
+
+            if (myGrpData == null) {
+                document.getElementById("listBlink").innerText = "데이터 없음"
+            } else {
+                let htmlString = ""
+                let number = 1
+                for (const element of myGrpData) {
+                    htmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                    htmlString += "<td><p class=\"text-s font-weight-bold mb-0\">" + element.grpNm + "</p></td>"
+                    htmlString += ((element.grpAuth === "0")
+                        ? "<td><p class=\"text-center text-s font-weight-bold mb-0\">장부장</p></td>"
+                        : "<td><p class=\"text-center text-s font-weight-bold mb-0\">사용자</p></td>")
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + element.cnt + "명</p></td>"
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + numberWithCommas(element.prepaidAmt) + "원</p></td></tr>"
+                    number++
+                }
+                document.getElementById("grpBookList").innerHTML = htmlString
+                document.getElementById("listBlink").innerText = ""
+            }
+
+            if (grpData == null) {
+                document.getElementById("listBlink2").innerText = "데이터 없음"
+            } else {
+                let htmlString = ""
+                let number = 1
+                for (const element of grpData) {
+                    htmlString += "<tr><td><p class=\"text-s font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                    htmlString += "<td><p class=\"text-s font-weight-bold mb-0\">" + element.grpNm + "</p></td>"
+                    htmlString += ((element.grpAuth === "0")
+                        ? "<td><p class=\"text-center text-s font-weight-bold mb-0\">장부장</p></td>"
+                        : "<td><p class=\"text-center text-s font-weight-bold mb-0\">사용자</p></td>")
+                    htmlString += "<td><p class=\"text-center text-s font-weight-bold mb-0\">" + numberWithCommas(element.prepaidAmt) + "원</p></td></tr>"
+                    number++
+                }
+                document.getElementById("grpBookList2").innerHTML = htmlString
+                document.getElementById("listBlink2").innerText = ""
+            }
+
+
+            if (unUsedCouponList == null) {
+                document.getElementById("listBlink3").innerText = "데이터 없음"
+            } else {
+                let htmlString = ""
+                let number = 1
+                for (const coupon of unUsedCouponList) {
+                    htmlString += "<tr><td><p class=\"text-s text-center font-weight-bold mb-0\">" + number + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-center font-weight-bold mb-0\">" + coupon.restNm + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-left font-weight-bold mb-0\">" + coupon.menuNm + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-left font-weight-bold mb-0\">" + coupon.cpNo + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-right font-weight-bold mb-0 \">" + numberWithCommas(coupon.price) + "원</p></td>"
+                    htmlString += "<td><p class=\"text-s text-center font-weight-bold mb-0 \" id='darUseDay" + number + "'>" + coupon.darUseDay + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-center font-weight-bold mb-0 \">" + coupon.useDay + "</p></td>"
+                    htmlString += "<td class='text-center'><button class='bg-gradient-primary btn btn-sm mb-0 ' style='color: white' onclick='onClickUsedCheck(\"" + coupon.orderNo + "\",this,\"" + number + "\")'>사용가능 확인</button></td>"
+                    htmlString += "<td class='text-center'><button class='bg-gradient-primary btn btn-sm mb-0' style='color: white' id='extendBtn"+number+"' onclick='onClickUsedExtend(\"" + coupon.orderNo + "\"," + number + ")' disabled>기한연장</button></td><tr>"
+                    number++
+                }
+                document.getElementById("unUseCouponList").innerHTML = htmlString
+                document.getElementById("listBlink3").innerText = ""
+            }
+
+            if (billingCardInfo != null) {
+                let htmlString = ""
+                let number = 1
+                for (const element of billingCardInfo) {
+                    htmlString += "<tr><td><p class=\"text-s text-left font-weight-bold mb-0 ms-5\">" + number + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-center font-weight-bold mb-0\">" + element.cardName + "</p></td>"
+                    htmlString += "<td><p class=\"text-s text-center font-weight-bold mb-0\">" + element.cardNum + "</p></td>"
+                    htmlString += ((element.cardType === "01")
+                        ? "<td><p class=\"text-center text-s font-weight-bold mb-0\">개인</p></td>"
+                        : "<td><p class=\"text-center text-s font-weight-bold mb-0\">법인</p></td>")
+                    htmlString += "<td><p class=\"text-s text-center font-weight-bold mb-0\">" + element.regDate + "</p></td>"
+                    number++
+                }
+                document.getElementById("billingCard").innerHTML = htmlString
+
+            }
+
+            if (addCsList("M", getParams("uId"), "/api/GetBizCsList")) {
+                let obj = await RequestGETApi('/api/GetBizCsList?searchKeyId=' + getParams("uId") + '&searchType=M')
+                setCsList(obj.resultData)
+            }
+            FunLoadingBarFinish()
+        }
+
+        function onClickUsedCheck(orderNo, button, num) {
+            FunLoadingBarStart()
+            fetch("/api/CheckGifticonUsed?orderNo=" + orderNo).then(function (data) {
+                return data.json()
+            }).then(function (res) {
+                const couponInfo = res.resultData
+                const extendBtn = document.getElementById("extendBtn"+num)
+
+                button.disabled = true
+                if (couponInfo.state === "0") {
+                    button.classList = "bg-danger btn btn-sm mb-0"
+                    button.textContent = "사용불가능"
+                    extendBtn.classList = "bg-danger btn btn-sm mb-0"
+                    extendBtn.textContent = "사용 또는 취소됨"
+                } else {
+                    button.classList = "bg-success btn btn-sm mb-0"
+                    button.textContent = "사용가능"
+                    extendBtn.disabled = false
+                }
+                FunLoadingBarFinish()
+            }).catch(function () {
+                FunLoadingBarFinish()
+            })
+        }
+
+        function onClickUsedExtend(orderNo,num) {
+            FunLoadingBarStart()
+
+            const extendBtn = document.getElementById("extendBtn"+num)
+            const darayoLabel = document.getElementById("darUseDay"+num)
+
+            fetch("/api/ExtendGifticonUsed?orderNo=" + orderNo
+            ).then(function (data) {
+                return data.json()
+            }).then(function (res) {
+                const data = res.resultData
+
+                extendBtn.disabled = true
+                if (res.resultCode === "00") {
+                    extendBtn.classList = "bg-success btn btn-sm mb-0"
+                    extendBtn.textContent = "달아요 기간 연장 됨"
+                    darayoLabel.textContent = data.darUseDay
+                }
+                FunLoadingBarFinish()
+            }).catch(function () {
+                FunLoadingBarFinish()
+            })
+
+        }
+
+
+    </script>
+
+    <!--경로 네비-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">Admin</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.href ='/admin/member';">회원관리</a>
+            </li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">회원관리 상세</a>
+            </li>
+        </ol>
+    </nav>
+
+    <!--컨테이너-->
+    <div class="container-fluid py-4">
+        <!--백버튼-->
+        <div class="card-header-new pb-0 mb-0" id="backButton">
+            <div class="row">
+                <div class="col-md-3">
+                    <h4 class="mt-2">회원관리 상세</h4></div>
+                <div class="col">
+                    <button type="button" class="btn bg-gradient-primary mt-2" onclick="location.href='/admin/member'">
+                        뒤로가기
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!--뷰 상단-->
+        <div class="card">
+            <div class="row">
+                <div class="col ms-3 p-3" id="MemberInfoCol">
+                    <h5>회원 정보</h5>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>이름</h6>
+                        </div>
+                        <div class="col ms-3 mt-0">
+                            <div class="customBorder" id="userNm">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>아이디</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="userId">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>로그인 유형</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="loginType">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>가입일</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="joinDate">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>상태</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="useState">데이터</div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-3 ms-3 mt-1">
+                            <h6>마지막 접속일</h6>
+                        </div>
+                        <div class="col ms-3">
+                            <div class="customBorder" id="lastLoginDate">데이터</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!--cs 이력-->
+                <div class="col ms-3" id="csList" style="height: 170px"></div>
+
+            </div>
+        </div>
+
+        <!--뷰 하단-->
+        <div class=" mt-4">
+            <!--가입 장부-->
+            <div class="row">
+                <div class="col card ms-3 p-3 me-3">
+                    <h5>본인 장부</h5>
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0 mt-3">
+                            <thead id="grpBookListHeader">
+                            <tr>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">NO.
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">장부이름
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                    권한
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                    장부인원
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                    지원금
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody id="grpBookList"></tbody>
+                        </table>
+                        <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink"></p>
+                    </div>
+                </div>
+
+                <div class="col card ms-3 p-3 me-3">
+                    <h5>가입 장부</h5>
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0 mt-3">
+                            <thead id="grpBookListHeader2">
+                            <tr>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">NO.
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6">장부이름
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                    권한
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                    지원금
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody id="grpBookList2"></tbody>
+                        </table>
+                        <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink2"></p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!--뷰 하단-->
+        <div class=" mt-4">
+            <!--가입 장부-->
+            <div class="row">
+                <div class="col card ms-3 p-3 me-3">
+                    <h5>미사용 기프티콘 목록</h5>
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0 mt-3">
+                            <thead>
+                            <tr>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">No.</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">사용처</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">메뉴</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">상품번호</th>
+                                <th class=" text-right text-secondary text-s font-weight-bolder opacity-6">금액</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">달아요 만료일</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">사용 만료일</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">사용가능 확인</th>
+                                <th class=" text-center text-secondary text-s font-weight-bolder opacity-6">사용기간 연장</th>
+                            </tr>
+                            </thead>
+                            <tbody id="unUseCouponList"></tbody>
+                        </table>
+                        <p class="text-center text-s font-weight-bold mb-3 mt-2" id="listBlink3"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!--뷰 하단-->
+        <div class=" mt-4">
+            <div class="row">
+                <div class="col card ms-3 p-3 me-3">
+                    <h5>간편 결제 카드 정보</h5>
+                    <div class="table-responsive">
+                        <table class="table align-items-center mb-0 mt-3">
+                            <thead>
+                            <tr>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-left">NO.
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">카드사
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                   카드번호
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                   카드타입
+                                </th>
+                                <th class="text-uppercase text-secondary text-s font-weight-bolder opacity-6 text-center">
+                                   등록일
+                                </th>
+                            </tr>
+                            </thead>
+                            <tbody id="billingCard">
+                            <tr>
+                                <td colspan="5" class="text-center">데이터 없음</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!--alert modal (cs내역 저장)-->
+    <div id="CsAlert"></div>
+
+</main>
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->

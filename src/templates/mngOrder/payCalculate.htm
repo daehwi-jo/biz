@@ -1,0 +1,447 @@
+<!--header"-->
+[[template "header" .]]
+<!--header"-->
+
+<main class="main-content mt-1 border-radius-lg">
+
+    <!--navar"-->
+    [[template "top_navar" .]]
+    <!--navar"-->
+
+
+    <script type="text/javascript">
+
+        let resultUrl = "";	//결제결과 받는 URL
+        let nAmt =0;
+
+        window.addEventListener("load", function () {
+
+            // getTpayData();
+            $("#accStDay").val(getToday('-'));
+            getData();
+
+        });
+
+        function getToday(p){
+            var today = new Date();
+
+            var year = today.getFullYear();
+            var month = ('0' + (today.getMonth() + 1)).slice(-2);
+            var day = ('0' + today.getDate()).slice(-2);
+            var dateString = year + p + month  + p + day;
+
+            return dateString
+
+        }
+
+        function isEmpty(str){
+
+            if(typeof str == "undefined" || str == null || str == "")
+                return true;
+            else
+                return false ;
+        }
+
+
+        function  getTpayData() {
+
+
+            let amt =document.getElementById("remainAmt").value;
+            if (isEmpty(amt)==true){
+                alert("미정산 금액이 없습니다.");
+                return;
+            }
+
+
+            FunLoadingBarStart()
+
+            let addAmt=0;
+
+            let payChannel="03"
+            let pgCd="01"
+            let userTy="0"
+            let selectedDate=document.getElementById("accStDay").value.replaceAll('-','');
+            let paymentTy="3"
+            let osTy="web"
+
+
+            let sendData = {
+                grpId:[[.grpId]],
+                restId:[[.restId]],
+                userId:sessionStorage.getItem('userId'),
+                searchTy:[[.searchTy]],
+                amt:amt
+            };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/tpays/readyWebData', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+               // console.log(res)
+                let mallReserved="";
+
+                if (res.resultCode=="00"){
+                    document.getElementById("buyerEmail").value=res.tpay.buyerEmail;
+                    document.getElementById("buyerTel").value=res.tpay.buyerTel;
+                    document.getElementById("cancelUrl").value=res.tpay.cancelUrl;
+                    document.getElementById("userIp").value=res.tpay.clientIp;
+                    document.getElementById("connType").value=res.tpay.connType;
+                    document.getElementById("ediDate").value=res.tpay.ediDate;
+                    document.getElementById("encryptData").value=res.tpay.encryptData;
+                    document.getElementById("goodsName").value=res.tpay.goodsName;
+                    document.getElementById("mallIp").value=res.tpay.mallIp;
+                    document.getElementById("merchantKey").value=res.tpay.merchantKey;
+                    document.getElementById("mid").value=res.tpay.mid;
+                    document.getElementById("moid").value=res.tpay.moid;
+                    document.getElementById("returnUrl").value=res.tpay.returnUrl;
+                    document.getElementById("userAgent").value=res.tpay.userAgent;
+                    document.getElementById("buyerName").value=res.tpay.userNm;
+                    document.getElementById("vbankExpDate").value=res.tpay.vbankExpDate;
+                    document.getElementById("mallUserId").value=res.tpay.userId;
+                    document.getElementById("amt").value=amt;
+                    document.getElementById("appPrefix").value=res.tpay.appPrefix;
+                    document.getElementById("domain").value=res.tpay.domain;
+
+                    resultUrl = res.tpay.returnUrl;
+
+                    document.getElementById("payUserId").innerText=res.tpay.userNm;
+                    document.getElementById("payGoodsName").innerText=res.tpay.goodsName;
+                    document.getElementById("payAmt").innerText=Format_comma2(amt)+"원";
+
+
+                    mallReserved = res.tpay.moid + "," + amt + "," + res.tpay.restId + "," + res.tpay.grpId + "," + res.tpay.searchTy + "," + addAmt + "," + payChannel + "," + pgCd + "," + userTy + "," + selectedDate + "," + paymentTy + "," + osTy;
+                    document.getElementById("mallReserved").value=mallReserved;
+
+                    console.log(mallReserved)
+                }
+
+                FunLoadingBarFinish()
+
+
+                $("#chargeBtn").click();
+
+
+            });
+
+        }
+
+
+        function  getData() {
+
+            FunLoadingBarStart()
+
+            let accStDay =document.getElementById("accStDay").value;
+            let sendData = {
+                grpId:[[.grpId]],
+                restId:[[.restId]],
+                accStDay:accStDay.replaceAll('-','')
+             };
+            var opts = {method: 'POST', body: JSON.stringify(sendData), headers: {"Content-Type": "application/json"}};
+            fetch('/api/GetStoreUnpaidList', opts).then(function(response) {
+                return response.json();
+            }).then(function(res) {
+                console.log(res)
+                document.getElementById("restImg").src = res.resultData.storeInfo.restImg;
+                document.getElementById("restNm").innerText = res.resultData.storeInfo.restNm;
+                document.getElementById("restAddr").innerText = res.resultData.storeInfo.addr + " " +res.resultData.storeInfo.addr2 ;
+
+                let html="";
+                if (isEmpty(res.resultData.unPaidList)==false ) {
+                    res.resultData.unPaidList.forEach(function(v) {
+                        html += '<tr>';
+                        html += '    <td  class="align-middle text-center">';
+                        html += '        <p class="text-xs  mb-0">'+v.orderDate+'</p>';
+                        html += '    </td>';
+                        html += '    <td class="align-middle text-center">';
+                        html += '        <p class="text-xs  mb-0">'+Format_comma2(v.orderCnt)+'</p>';
+                        html += '    </td>';
+                        html += '    <td class="align-middle text-right">';
+                        html += '        <p class="text-xs  mb-0" style="color: #825aff">'+Format_comma2(v.totalAmt)+'원</p>';
+                        html += '    </td>';
+                        html += '</tr>';
+                    });
+                    html += '<tr>';
+                    html += '    <td  class="align-middle text-center">';
+                    html += '        <p class="font-weight-bold mb-0">총금액</p>';
+                    html += '    </td>';
+                    html += '    <td class="align-middle text-center">';
+                    html += '        <p class="text-xs  mb-0"></p>';
+                    html += '    </td>';
+                    html += '    <td class="align-middle text-right">';
+                    html += '        <p class="font-weight-bold mb-0" style="color: #825aff">'+Format_comma2(res.resultData.totalAmt)+'원</p>';
+                    html += '    </td>';
+                    html += '</tr>';
+
+                    document.getElementById("remainAmt").value = res.resultData.totalAmt;
+
+                    document.getElementById("unPaidList").innerHTML = html
+                }else{
+
+                    document.getElementById("c_btn").style="display:none"
+                }
+
+
+
+                FunLoadingBarFinish()
+
+
+
+            });
+        };
+
+
+        function  selectPayMethod() {
+            let payMethod=$("#selectPayMethod option:selected").val();
+            document.getElementById("payMethod").value=payMethod;
+        }
+
+        function  selectAmt(sumAmt,addAmt) {
+            document.getElementById("remainAddAmt").value = 0;
+            document.getElementById("remainAmt").innerText = Format_comma2(nAmt+sumAmt)+"원";
+        }
+
+
+
+
+        function  goTpay() {
+
+            let payMethod = document.getElementById("payMethod").value
+            if (isEmpty(payMethod)==true){
+                alert("결제 수단을 선택해 주세요.");
+                return;
+            }
+            document.getElementById("payMethod").value=payMethod;
+            let check =  document.getElementsByName("paidChk")[0].checked;
+            if(check==false) {
+                alert("결제대행서비스 약관동의 후 결제가 가능합니다.");
+                return;
+            }
+            $("#pay_modal_cancel").click();
+            $("#submitBtn").click();
+
+        }
+
+
+    </script>
+
+    <!--메뉴 경로-->
+    <nav aria-label="breadcrumb" id="RouteNav">
+        <ol class="breadcrumb bg-transparent mb-0 pb-0 pt-1 px-0 me-sm-6 me-5">
+            <li class="breadcrumb-item text-sm text-dark active" aria-current="page">가맹점</li>
+            <li class="breadcrumb-item text-sm font-weight-bolder">
+                <a class="opacity-5 text-dark" href="javascript:location.reload()">충전하기</a>
+            </li>
+        </ol>
+    </nav>
+
+    <div class="container-fluid py-4">
+
+        <div class="card">
+
+            <div class="card-body pt-2">
+                <img src="" id="restImg" alt="..." class="avatar shadow">
+                <span class="text-gradient text-primary text-uppercase text-lg font-weight-bold my-2" id="restNm"></span>
+                <p class="card-description mb-4" id="restAddr"></p>
+                <div class="author align-items-center">
+
+                    <div class="col-md-1 ms-3 mt-4">
+                        <h6>정산 기준일 :</h6>
+                    </div>
+                    <div class="col-md-2  ms-3  mt-3">
+                        <div class="input-group input-group-alternative">
+                            <input class="form-control" type="date" value=""  id="accStDay" onchange="getData()">
+                        </div>
+                        <input type="hidden" id="remainAmt">
+                    </div>
+                </div>
+                <p></p>
+                <div class="table-responsive">
+                    <table class="table align-items-center mb-0" style="width: 40%">
+                        <thead>
+                        <tr>
+                            <th class="text-uppercase text-secondary text-center text-xs font-weight-bolder opacity-7">주문일자</th>
+                            <th class="text-uppercase text-secondary text-center text-xs font-weight-bolder opacity-7 ps-2">건수</th>
+                            <th class="text-uppercase text-secondary text-center text-xs font-weight-bolder opacity-7 ps-2">미결제금액</th>
+                        </tr>
+                        </thead>
+                        <tbody id="unPaidList">
+                        <tr>
+                            <td colspan="3" align="center">* 미정산 내역이 없습니다.</td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+                <br>
+                <link rel="stylesheet" href="//webtx.tpay.co.kr/css/nyroModal.tpay.custom.css" type="text/css" media="screen" />
+                <script type="text/javascript" src="//webtx.tpay.co.kr/js/jquery-1.7.2.js"></script>
+                <script type="text/javascript" src="//webtx.tpay.co.kr/js/jquery.nyroModal.tpay.custom.js"></script>
+                <script type="text/javascript" src="//webtx.tpay.co.kr/js/client.tpay.webtx.js"></script>
+                <form id="transMgr" name="transMgr" action="https://webtx.tpay.co.kr/webTxInit" method="post"  class="nyroModal" target="_blank">
+                    <input type="hidden" name="payMethod" id="payMethod"  readonly="readonly">
+                    <input type="hidden" name="vbankExpDate" id="vbankExpDate" readonly="readonly">
+                    <input type="hidden" name="returnUrl" id="returnUrl" >
+                    <input type="hidden" name="cancelUrl" id="cancelUrl" >
+                    <input type="hidden" name="prdtExpDate"  id="prdtExpDate" value="">
+                    <input type="hidden" name="resultYn" id="resultYn" value="N">
+                    <input type="hidden" name="payType" id="payType" value="1">
+                    <input type="hidden" name="ediDate"	id="ediDate" >
+                    <input type="hidden" name="encryptData" id="encryptData" >
+                    <input type="hidden" name="userIp"	id="userIp" >
+                    <input type="hidden" name="browserType" id="browserType" id="browserType" value="">
+                    <input type="hidden" name="mallReserved" id="mallReserved" >
+                    <input type="hidden" name="mallIp" id="mallIp" value="172.29.80.1">
+                    <input type="hidden" name="transType" id="transType" value="0" readonly="readonly">
+                    <input type="hidden" name="connType" id="connType" value="1" readonly="readonly">
+                    <input type="hidden" name="userAgent" id="userAgent"  readonly="readonly">
+                    <input type="hidden" name="buyerEmail" id="buyerEmail" readonly="readonly">
+                    <input type="hidden" name="buyerTel" id="buyerTel" readonly="readonly">
+                    <input type="hidden" name="goodsName" id="goodsName"  readonly="readonly">
+                    <input type="hidden" name="amt" id="amt"  readonly="readonly">
+                    <input type="hidden" name="merchantKey" id="merchantKey"  readonly="readonly">
+                    <input type="hidden" name="mid" id="mid"  readonly="readonly">
+                    <input type="hidden" name="moid" id="moid"  readonly="readonly">
+                    <input type="hidden" name="buyerName" id="buyerName" readonly="readonly">
+                    <input type="hidden" name="mallUserId" id="mallUserId"  readonly="readonly">
+                    <input type="hidden" name="appPrefix" id="appPrefix"  readonly="readonly">
+                    <input type="hidden" name="domain" id="domain"  readonly="readonly">
+
+                </form>
+                <button type="button" id="submitBtn" style="display: none;"></button>
+                <button type="button" class="btn btn-primary btn-lg" id="c_btn" onclick="getTpayData()">정산하기</button>
+                <button style="display: none;" type="button" class="btn btn-primary btn-lg"  id="chargeBtn"  data-bs-toggle="modal" data-bs-target="#payReady"></button>
+            </div>
+        </div>
+
+
+
+    </div> <!--컨테이너 끝-->
+
+
+    <!--사용자 관리 모달-->
+    <style type="text/css">
+        *, *::before, *::after { box-sizing: border-box; }
+        *, *::before, *::after {padding: 0; margin:0; font-family:Nanum Gothic; }
+        .start { width: 100%; }
+        .mainSection0 { margin: 15px 0 0 0; }
+        .mainSection0 >.box { display:flex; flex-direction:row; justify-content: center; border-bottom: 2px solid #6739ff; padding-bottom: 10px;}
+        .box .text { font-size: 30px; font-weight: 700; color: #6739ff; line-height: 1.5;}
+        .mainSection1 { margin: 30px 28px 35px 28px; }
+        .mainSection1 .box { display:flex; flex-direction:row; justify-content: space-between; margin-bottom: 25px; }
+        .mainSection1 .box:nth-child(1) { display:flex; align-items: center; }
+        .box .subject { font-size: 20px; font-weight: 500; color: #6739ff; line-height: 1.5;  }
+        .box .value { text-align: right; font-size: 20px; font-weight: bold; color: #25265e; line-height: 1.5;  }
+        .form { zoom:1.5; }
+        .mainSection2 { margin: 0 43px 45px 28px; }
+        .mainSection2 .box { display:flex; flex-direction:row; justify-content: space-between; margin-bottom: 5px; }
+        .text { display:flex; flex-direction:row; }
+        h3 { display:flex; flex-direction:row; font-size: 18px; font-weight: 800; color: #25265e; line-height: 1.5; }
+        .text label input { display:flex; justify-content: center; align-items: center; zoom:2; margin: 0px 0 0 5px; }
+        h5 { font-size: 10px; font-weight: weight; color: #8384a2; line-height: 1.3; }
+        .mainSection3 { }
+        .button { display: flex; justify-content: center; }
+        .button input { display: flex; justify-content: center; background-color: #6739ff; border: none; color: white; padding: 10px 30%; text-align: center; text-decoration: none; display: inline-block; font-size: 24px; font-weight: 500; cursor: pointer; border-radius: 60px; }
+
+    </style>
+    <div class="col-md-4">
+        <div class="modal fade" id="payReady" tabindex="-1" role="dialog" aria-hidden="true"  data-bs-backdrop="static">
+            <div class="modal-dialog modal-dialog-centered" style="max-width: 1000px;" role="document">
+                <div class="modal-content" style="max-width: 1000px; width: 702px; height: 600px">
+                    <div class="start">
+                        <section class="mainSection0">
+                            <div class="box">
+                                <div class="text">
+                                    결제하기
+                                </div>
+                            </div>
+                        </section>
+                        <section class="mainSection1">
+                            <div class="box">
+                                <div class="subject">
+                                    결제수단
+                                </div>
+                                <div class="form">
+                                    <select name='selectPayMethod' onchange="selectPayMethod()" id="selectPayMethod">
+                                        <option value='' selected>선택</option>
+                                        <option value="CARD">신용카드</option>
+                                        <option value="BANK">계좌이체</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="box">
+                                <div class="subject">
+                                    주문자명
+                                </div>
+                                <div class="value" id="payUserId">
+
+                                </div>
+                            </div>
+
+                            <div class="box">
+                                <div class="subject">
+                                    상품명
+                                </div>
+                                <div class="value" id="payGoodsName">
+
+                                </div>
+                            </div>
+
+                            <div class="box">
+                                <div class="subject">
+                                    상품가격
+                                </div>
+                                <div class="value" id="payAmt">
+                                    0원
+                                </div>
+                            </div>
+
+                        </section>
+
+                        <!-- ======================Section2 Start====================== -->
+
+                        <section class="mainSection2">
+                            <div class="box">
+                                <div class="text">
+                                    <h3>결제대행서비스 약관동의</h3>
+                                    <label><input type="checkbox" id="paidChk" name="paidChk" value="1"> </label>
+                                </div>
+                            </div>
+
+                            <div class="box">
+                                <div class="text">
+                                    <h5>
+                                        개인정보 수집 및 이용안내, 민감정보 처리에 대한 안내, 제3자 정보제공 동의를 모두 읽었으며, 아래 내용에 모두 동의합니다.
+                                    </h5>
+                                </div>
+                            </div>
+
+                        </section>
+
+                        <!-- ======================Section3 Start====================== -->
+
+                        <section class="mainSection3">
+                            <div class="box">
+                            </div>
+                        </section>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button"  style="width: 151px; font-size: 15px;" class="btn bg-gradient-secondary" id="pay_modal_cancel"
+                                data-bs-dismiss="modal">취소
+                        </button>
+                        <button type="button" style="width: 151px; font-size: 15px;" class="btn bg-gradient-primary" onclick="goTpay()">결제하기
+                        </button>
+                    </div>
+
+
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<!--footer"-->
+[[template "footer" .]]
+<!--footer"-->
